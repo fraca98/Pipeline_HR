@@ -23,11 +23,11 @@ for i = 1: size(subDirsNames,2) %i = 1 : 2
     if(ismember(1,tf_intervals) == 1)
         intervals = readtable(fullfile(topLevelFolder, subDirsNames{1,i},csv_names(tf_intervals)));
         for k=1:size(intervals,2)
-            xline(intervals.startimesamp(k),'HandleVisibility','off')
+            xline(intervals.starttimestamp(k),'HandleVisibility','off')
             xline(intervals.endtimestamp(k),'HandleVisibility','off')
         end
         for k=1:size(intervals,2)-1
-            x_fill=[intervals.endtimestamp(k),intervals.endtimestamp(k),intervals.startimesamp(k+1),intervals.startimesamp(k+1)];
+            x_fill=[intervals.endtimestamp(k),intervals.endtimestamp(k),intervals.starttimestamp(k+1),intervals.starttimestamp(k+1)];
             y_fill=[0,250,250,0];
             a = fill(x_fill,y_fill,'yellow','HandleVisibility','off');
             a.FaceAlpha = 0.5;
@@ -51,7 +51,7 @@ for i = 1: size(subDirsNames,2) %i = 1 : 2
         apple = readtable(fullfile(topLevelFolder, subDirsNames{1,i},csv_names(tf_apple)));
         apple.time.TimeZone = '+01:00'; %specify correct timezone
         apple_timestamp = posixtime(apple.time);
-        idx_timestamp = find(apple_timestamp >= intervals.startimesamp(1) & apple_timestamp <= intervals.endtimestamp(end));
+        idx_timestamp = find(apple_timestamp >= intervals.starttimestamp(1) & apple_timestamp <= intervals.endtimestamp(end));
         %apple_res = apple(idx_timestamp,:);
         plot(apple_timestamp(idx_timestamp), apple.rate(idx_timestamp), Color='black', DisplayName='Apple')
     end
