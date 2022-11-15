@@ -53,6 +53,7 @@ for idx_user = 1:size(users_DirsNames,2)
         polar.Time = datetime(polar.timestamp,'ConvertFrom','posixtime', 'Format', 'yyyy-MM-dd HH:mm:ss', 'TimeZone','+01:00'); %convert to Date from Timestamp
         polar = table2timetable(polar);
         polar = renamevars(polar,"value","rate");
+        a = timeFix(polar.timestamp);
         polar = retimeHR(polar,1); %retime polar with 1 sec to solve duplicates values for same timestamp/Time
         plot(polar.Time, polar.rate, Color='red', DisplayName='Polar')
 
