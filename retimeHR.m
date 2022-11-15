@@ -45,7 +45,8 @@ function dataRetimed = retimeHR(data, timestep)
     
     
     %Create the new timetable
-    data.Time.Second(1) = round(data.Time.Second(1)/60)*60; % starting from 0 when performing delta
+    %data.Time.Second(1) = round(data.Time.Second(1)/60)*60; % starting
+    %from 0 seconds for newTime
     newTime = data.Time(1):seconds(timestep):data.Time(end); %step as seconds
     dataRetimed = timetable(nan(length(newTime),1),nan(length(newTime),1),'VariableNames', {'rate','k'}, 'RowTimes', newTime);
     
@@ -70,7 +71,7 @@ function dataRetimed = retimeHR(data, timestep)
     end
     
     %Compute the average and remove column 'k'
-    dataRetimed.rate = dataRetimed.rate ./ dataRetimed.k;
+    dataRetimed.rate = round(dataRetimed.rate ./ dataRetimed.k);
     dataRetimed.k = [];
     
 end
