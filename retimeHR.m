@@ -7,7 +7,7 @@ function dataRetimed = retimeHR(data, timestep)
 %Inputs:
 %   - data: a timetable with column `Time` and `rate` containing the 
 %   heart rate data to retime;
-%   - timestep: an integer defining the timestep to use in the new timetable. 
+%   - timestep: an integer (in seconds) defining the timestep to use in the new timetable. 
 %Output:
 %   - dataRetimed: the retimed timetable.
 %
@@ -45,8 +45,8 @@ function dataRetimed = retimeHR(data, timestep)
     
     
     %Create the new timetable
-    data.Time.Second(1) = round(data.Time.Second(1)/60)*60;
-    newTime = data.Time(1):minutes(timestep):data.Time(end);
+    data.Time.Second(1) = round(data.Time.Second(1)/60)*60; % starting from 0 when performing delta
+    newTime = data.Time(1):seconds(timestep):data.Time(end); %step as seconds
     dataRetimed = timetable(nan(length(newTime),1),nan(length(newTime),1),'VariableNames', {'rate','k'}, 'RowTimes', newTime);
     
     %Remove nan entries from data

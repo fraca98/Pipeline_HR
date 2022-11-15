@@ -23,6 +23,8 @@ for idx_user = 1:size(users_DirsNames,2)
     sessions_DirsNames = {sessions_Dirs(3:end).name};
     sessions_DirsNames = string(sessions_DirsNames);
 
+    figure, sgtitle('ID '+ users_DirsNames(idx_user))
+
     %% Loop for sessions for each user (iterate for session)
     for idx_session = 1: size(sessions_DirsNames,2) %i = 1 : 2
         csvs = dir(fullfile(userPath,sessions_DirsNames(idx_session)));
@@ -30,34 +32,36 @@ for idx_user = 1:size(users_DirsNames,2)
         csv_names = {csvs(3:end).name};
         csv_names = string(csv_names);
 
-        figure(),hold on
+        subplot(2,1,idx_session),hold on
 
         tf_intervals = startsWith(csv_names, 'intervals');
-        if(ismember(1,tf_intervals) == 1)
-            intervals = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_intervals)));
-            for k=1:size(intervals,2)
-                xline(intervals.starttimestamp(k),'HandleVisibility','off')
-                xline(intervals.endtimestamp(k),'HandleVisibility','off')
-            end
-            for k=1:size(intervals,2)-1
-                x_fill=[intervals.endtimestamp(k),intervals.endtimestamp(k),intervals.starttimestamp(k+1),intervals.starttimestamp(k+1)];
-                y_fill=[0,250,250,0];
-                a = fill(x_fill,y_fill,'yellow','HandleVisibility','off');
-                a.FaceAlpha = 0.5;
-            end
+        intervals = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_intervals)));
+        for k=1:size(intervals,2)
+            xline(datetime(intervals.starttimestamp(k),'ConvertFrom','posixtime', 'Format', 'yyyy-MM-dd HH:mm:ss', 'TimeZone','+01:00'),'HandleVisibility','off')
+            xline(datetime(intervals.endtimestamp(k),'ConvertFrom','posixtime', 'Format', 'yyyy-MM-dd HH:mm:ss', 'TimeZone','+01:00'),'HandleVisibility','off')
+        end
+        for k=1:size(intervals,2)-1
+            x_fill=[datetime(intervals.endtimestamp(k),'ConvertFrom','posixtime', 'Format', 'yyyy-MM-dd HH:mm:ss', 'TimeZone','+01:00'),datetime(intervals.endtimestamp(k),'ConvertFrom','posixtime', 'Format', 'yyyy-MM-dd HH:mm:ss', 'TimeZone','+01:00'),datetime(intervals.starttimestamp(k+1),'ConvertFrom','posixtime', 'Format', 'yyyy-MM-dd HH:mm:ss', 'TimeZone','+01:00'),datetime(intervals.starttimestamp(k+1),'ConvertFrom','posixtime', 'Format', 'yyyy-MM-dd HH:mm:ss', 'TimeZone','+01:00')];
+            y_fill=[0,250,250,0];
+            a = fill(x_fill,y_fill,'yellow','HandleVisibility','off');
+            a.FaceAlpha = 0.5;
         end
 
 
         tf_polar = startsWith(csv_names,'polar'); %% take polar file name
-        if(ismember(1,tf_polar) == 1)
-            polar = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
-            plot(polar.timestamp, polar.value, Color='red', DisplayName='Polar')
-        end
+        polar = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
+        polar.Time = datetime(polar.timestamp,'ConvertFrom','posixtime', 'Format', 'yyyy-MM-dd HH:mm:ss', 'TimeZone','+01:00'); %convert to Date from Timestamp
+        polar = table2timetable(polar);
+        polar = renamevars(polar,"value","rate");
+        plot(polar.Time, polar.rate, Color='red', DisplayName='Polar')
 
         tf_fitbit = startsWith(csv_names,'fitbit'); %% take fitbit file name
         if(ismember(1,tf_fitbit) == 1)
             fitbit = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_fitbit)));
-            plot(fitbit.timestamp, fitbit.value, Color='blue', DisplayName='Fitbit')
+            fitbit.Time = datetime(fitbit.timestamp,'ConvertFrom','posixtime', 'Format', 'yyyy-MM-dd HH:mm:ss', 'TimeZone','+01:00'); %convert to Date from Timestamp
+            fitbit = table2timetable(fitbit);
+            fitbit = renamevars(fitbit,"value","rate");
+            plot(fitbit.Time, fitbit.rate, Color='blue', DisplayName='Fitbit')
         end
         tf_apple = startsWith(csv_names,'Apple'); %% take apple file name
         if(ismember(1,tf_apple) == 1)
@@ -65,22 +69,147 @@ for idx_user = 1:size(users_DirsNames,2)
             apple.time.TimeZone = '+01:00'; %specify correct timezone
             apple_timestamp = posixtime(apple.time);
             idx_timestamp = find(apple_timestamp >= intervals.starttimestamp(1) & apple_timestamp <= intervals.endtimestamp(end));
-            %apple_res = apple(idx_timestamp,:);
-            plot(apple_timestamp(idx_timestamp), apple.rate(idx_timestamp), Color='black', DisplayName='Apple')
+            apple = apple(idx_timestamp,:);
+            apple = renamevars(apple,"time","Time");
+            apple = table2timetable(apple);
+            plot(apple.Time, apple.rate, Color='black', DisplayName='Apple')
         end
         tf_withings = startsWith(csv_names,'withings'); %% take withings file name
         if(ismember(1,tf_withings) == 1)
             withings = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_withings)));
-            plot(withings.timestamp, withings.value, Color='green', DisplayName='Withings')
+            withings.Time = datetime(withings.timestamp,'ConvertFrom','posixtime', 'Format', 'yyyy-MM-dd HH:mm:ss', 'TimeZone','+01:00'); %convert to Date from Timestamp
+            withings = table2timetable(withings);
+            withings = renamevars(withings,"value","rate");
+            plot(withings.Time, withings.rate, Color='green', DisplayName='Withings')
         end
 
         tf_garmin = startsWith(csv_names,'garmin'); %% take garmin file name
         if(ismember(1,tf_garmin) == 1)
             garmin = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_garmin)));
-            plot(garmin.timestamp, garmin.value, Color='magenta', DisplayName='Garmin')
+            % TODO:
         end
         ylim([35 200]);
         set(gca,'FontSize',13)
         legend('Location','eastoutside')
     end
 end
+
+%% Creation TimeTable and retiming
+for idx_user = 1:size(users_DirsNames,2)
+    userPath = fullfile(dataPath,users_DirsNames(idx_user));
+    user_fd = dir(userPath);
+    user_Flags = [user_fd.isdir];
+    sessions_Dirs = user_fd(user_Flags);
+    sessions_DirsNames = {sessions_Dirs(3:end).name};
+    sessions_DirsNames = string(sessions_DirsNames);
+
+    figure() % a figure for each user
+    sgtitle('ID '+ users_DirsNames(idx_user))
+    %% Loop for sessions for each user (iterate for session)
+    for idx_session = 1: size(sessions_DirsNames,2) %i = 1 : 2
+        csvs = dir(fullfile(userPath,sessions_DirsNames(idx_session)));
+        % Get only the folder names into a cell array.
+        csv_names = {csvs(3:end).name};
+        csv_names = string(csv_names);
+
+        tf_polar = startsWith(csv_names,'polar'); %% take polar file name
+        tf_fitbit = startsWith(csv_names,'fitbit'); %% take fitbit file name
+        if(ismember(1,tf_fitbit) == 1)
+            fitbit = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_fitbit)));
+            fitbit.Time = datetime(fitbit.timestamp,'ConvertFrom','posixtime', 'Format', 'yyyy-MM-dd HH:mm:ss', 'TimeZone','+01:00'); %convert to Date from Timestamp
+            fitbit = table2timetable(fitbit);
+            fitbit = renamevars(fitbit,"value","rate");
+
+            polar = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
+            polar.Time = datetime(polar.timestamp,'ConvertFrom','posixtime', 'Format', 'yyyy-MM-dd HH:mm:ss', 'TimeZone','+01:00'); %convert to Date from Timestamp
+            polar = table2timetable(polar);
+            polar = renamevars(polar,"value","rate");
+
+            maxT = max([polar.Time(1), fitbit.Time(1)]); %take the max of date of the first value and use it as 0 on x-grid
+            polar.sec0Grid = etime(datevec(datenum(polar.Time)),datevec(datenum(maxT)));
+            fitbit.sec0Grid = etime(datevec(datenum(fitbit.Time)),datevec(datenum(maxT)));
+            polar(polar.sec0Grid<0,:)=[];
+            polar(fitbit.sec0Grid<0,:)=[];
+
+            subplot(221), hold on
+            plot(polar.sec0Grid, polar.rate,Color='red', DisplayName='Polar')
+            plot(fitbit.sec0Grid, fitbit.rate,Color='blue', DisplayName='Fitbit')
+            legend('Location','northwest')
+
+        end
+
+        tf_apple = startsWith(csv_names,'Apple'); %% take apple file name
+        if(ismember(1,tf_apple) == 1)
+            apple = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_apple)));
+            apple.time.TimeZone = '+01:00'; %specify correct timezone
+            apple_timestamp = posixtime(apple.time);
+            tf_intervals = startsWith(csv_names, 'intervals');
+            intervals = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_intervals)));
+            idx_timestamp = find(apple_timestamp >= intervals.starttimestamp(1) & apple_timestamp <= intervals.endtimestamp(end));
+            apple = apple(idx_timestamp,:);
+            apple = renamevars(apple,"time","Time");
+            apple = table2timetable(apple);
+
+            polar = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
+            polar.Time = datetime(polar.timestamp,'ConvertFrom','posixtime', 'Format', 'yyyy-MM-dd HH:mm:ss', 'TimeZone','+01:00'); %convert to Date from Timestamp
+            polar = table2timetable(polar);
+            polar = renamevars(polar,"value","rate");
+
+            maxT = max([polar.Time(1), apple.Time(1)]); %take the max of date of the first value and use it as 0 on x-grid
+            polar.sec0Grid = etime(datevec(datenum(polar.Time)),datevec(datenum(maxT)));
+            apple.sec0Grid = etime(datevec(datenum(apple.Time)),datevec(datenum(maxT)));
+            polar(polar.sec0Grid<0,:)=[];
+            polar(apple.sec0Grid<0,:)=[];
+
+            subplot(222),hold on
+            plot(polar.sec0Grid, polar.rate,'Color','red','DisplayName','Polar')
+            plot(apple.sec0Grid, apple.rate,'Color','black','DisplayName','Apple')
+            legend('Location','northwest')
+
+        end
+        tf_withings = startsWith(csv_names,'withings'); %% take withings file name
+        if(ismember(1,tf_withings) == 1)
+            withings = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_withings)));
+            withings.Time = datetime(withings.timestamp,'ConvertFrom','posixtime', 'Format', 'yyyy-MM-dd HH:mm:ss', 'TimeZone','+01:00'); %convert to Date from Timestamp
+            withings = table2timetable(withings);
+            withings = renamevars(withings,"value","rate");
+
+            polar = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
+            polar.Time = datetime(polar.timestamp,'ConvertFrom','posixtime', 'Format', 'yyyy-MM-dd HH:mm:ss', 'TimeZone','+01:00'); %convert to Date from Timestamp
+            polar = table2timetable(polar);
+            polar = renamevars(polar,"value","rate");
+
+            maxT = max([polar.Time(1), fitbit.Time(1)]); %take the max of date of the first value and use it as 0 on x-grid
+            polar.sec0Grid = etime(datevec(datenum(polar.Time)),datevec(datenum(maxT)));
+            withings.sec0Grid = etime(datevec(datenum(withings.Time)),datevec(datenum(maxT)));
+            polar(polar.sec0Grid<0,:)=[];
+            polar(withings.sec0Grid<0,:)=[];
+
+            subplot(223),hold on
+            plot(polar.sec0Grid, polar.rate,Color='red', DisplayName='Polar')
+            plot(withings.sec0Grid, withings.rate,Color='green', DisplayName='Withings')
+            legend('Location','northwest')
+        end
+
+
+        tf_garmin = startsWith(csv_names,'garmin'); %% take garmin file name
+        if(ismember(1,tf_garmin) == 1)
+
+            % TODO: Garmin
+
+
+            polar = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
+            polar.Time = datetime(polar.timestamp,'ConvertFrom','posixtime', 'Format', 'yyyy-MM-dd HH:mm:ss', 'TimeZone','+01:00'); %convert to Date from Timestamp
+            polar = table2timetable(polar);
+            polar = renamevars(polar,"value","rate");
+
+            subplot(224),hold on
+            plot(polar.Time, polar.rate, Color='red', DisplayName='Polar')
+            %plot(garmin.Time, garmin.rate, Color='magenta', DisplayName='Garmin')
+            legend('Location','northwest')
+
+        end
+
+    end
+end
+
