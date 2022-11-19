@@ -1,0 +1,37 @@
+function appleSessionCutter()
+% This function:
+% - creates and saves a file .csv containing the values (time,rate) of
+%   AppleWatch related to that specific session
+
+% dialog box to select the session file
+[fileSession,pathSession] = uigetfile('session*.csv','Select you session');
+if isequal(fileSession,0)
+    error('appleSessionCutter: select a valid session file .csv')
+end
+session = readtable(fullfile(pathSession,fileSession),'VariableNamingRule','preserve'); %to preserve name of columns
+if(~(strcmp(session.device1{1,1},'Apple Watch') || strcmp(session.device2{1,1},'Apple Watch'))) % check if Apple is registered for this session
+    error('appleSessionCutter: this session is not registered for an AppleWatch')
+end
+
+% dialog box to select the AppleWatch file to cut for the session
+[fileApple,pathApple] = uigetfile('AppleWatch*.csv','Select you AppleWatch .csv');
+if isequal(fileApple,0)
+    error('appleSessionCutter: select a valid AppleWatch file .csv')
+end
+
+apple = readtable(fullfile(pathApple,fileApple));
+apple= apple(:,{'time','rate'});
+apple = table2timetable(apple);
+
+idx_bet = isbetween(apple.time,session.start, session.end); %check where values of time in Apple are between & equal start/end of session
+valid = sum(idx_bet==1); %find number of valid entries (marked as 1 if between)
+if(valid==0)
+    error('appleSessionCutter: no AppleWatch values for the session selected')
+end
+
+apple = apple(idx_bet,:);
+nameCsv = strcat('applewatch_',num2str(session.idUser),'_',num2str(session.id),'.csv'); %create name of the new .csv file
+writetimetable(apple,fullfile(pathSession,nameCsv));
+display(strcat('Exported file:',nameCsv));
+end
+

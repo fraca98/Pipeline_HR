@@ -1,11 +1,11 @@
-function dataRetimed = retimeHR(data, timestep)
+function dataRetimed = retimeMStoS(data, timestep)
 %retimeHR function that retimes the given `data` timetable to a  
 %new timetable with homogeneous `timestep`. It puts nans where heart rate
 %datapoints are missing and it uses mean to solve conflicts (i.e., when two
 %heart rate datapoints have the same retimed timestamp.
 %
 %Inputs:
-%   - data: a timetable with column `Time` and `rate` containing the 
+%   - data: a timetable with column `time` and `rate` containing the 
 %   heart rate data to retime;
 %   - timestep: an integer (in seconds) defining the timestep to use in the new timetable. 
 %Output:
@@ -13,7 +13,7 @@ function dataRetimed = retimeHR(data, timestep)
 %
 %Preconditions:
 %   - data must be a timetable;
-%   - data must contain a column named `Time` and another named `rate`;
+%   - data must contain a column named `time` and another named `rate`;
 %   - timestep must be an integer.
 %
 % ------------------------------------------------------------------------
@@ -33,8 +33,8 @@ function dataRetimed = retimeHR(data, timestep)
     if(~istimetable(data))
         error('retimeHR: data must be a timetable.');
     end
-    if(~any(strcmp(fieldnames(data),'Time')))
-        error('retimeHR: data must have a column named `Time`.')
+    if(~any(strcmp(fieldnames(data),'time')))
+        error('retimeHR: data must have a column named `time`.')
     end
     if(~any(strcmp(fieldnames(data),'rate')))
         error('retimeHR: data must have a column named `rate`.')
@@ -43,20 +43,19 @@ function dataRetimed = retimeHR(data, timestep)
         error('retimeHR: timestep must be an integer.')
     end
     
-    
+    %TODO
     %Create the new timetable
-    %data.Time.Second(1) = round(data.Time.Second(1)/60)*60; % starting
-    %from 0 seconds for newTime
-    newTime = data.Time(1):seconds(timestep):data.Time(end); %step as seconds
+    newTime = data.time(1):seconds(timestep):data.time(end); %step as seconds
     dataRetimed = timetable(nan(length(newTime),1),nan(length(newTime),1),'VariableNames', {'rate','k'}, 'RowTimes', newTime);
+    dataRetimed.Properties.DimensionNames{1} = 'time'; %rename column 'Time' to 'time
     
     %Remove nan entries from data
     data = data(~isnan(data.rate),:);
     
-    for t = 1:length(data.Time)
+    for t = 1:length(data.time)
         
         %Find the nearest timestamp
-        distances = abs(data.Time(t) - dataRetimed.Time);
+        distances = abs(data.time(t) - dataRetimed.time);
         nearest = find(min(distances) == distances,1,'first');
         
         %Manage conflicts computing their average
