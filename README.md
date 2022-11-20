@@ -7,7 +7,7 @@ pipeline_hr
 │
 |─── appleSessionCutter.m
 |
-|─── appleSessionCutter.m
+|─── garminSessionCutter.m
 |
 └─── data
      │─── 1 
