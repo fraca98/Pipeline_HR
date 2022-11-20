@@ -34,9 +34,29 @@ for idx_user = 1:1 %size(users_DirsNames,2)
 
         subplot(2,1,idx_session),hold on
 
+        tf_session = startsWith(csv_names, 'session');
+        session = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_session)),"VariableNamingRule",'preserve');
+        %Shift to seconds without milliseconds (start)
+        session.start = dateshift(session.start, 'start', 'second');
+        session.end = dateshift(session.end, 'start', 'second');
+
         tf_intervals = startsWith(csv_names, 'intervals');
         intervals = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_intervals)),"VariableNamingRule",'preserve');
-        for k=1:size(intervals,2)-1 %TODO: add coloration before first interval
+        %Shift to seconds without milliseconds (start)
+        intervals.start = dateshift(intervals.start, 'start', 'second');
+        intervals.end = dateshift(intervals.end, 'start', 'second');
+
+        %color from start session to first interval
+        x_fill=[session.start,session.start,intervals.start(1),intervals.start(1)];
+        y_fill=[0,250,250,0];
+        a = fill(x_fill,y_fill,'yellow','HandleVisibility','off');
+        a.FaceAlpha = 0.5;
+
+        %plot vertical line for end session (end last interval)
+        xline(session.end,'HandleVisibility','off');
+
+        %color each interval
+        for k=1:size(intervals,2)-1
             x_fill=[intervals.end(k),intervals.end(k),intervals.start(k+1),intervals.start(k+1)];
             y_fill=[0,250,250,0];
             a = fill(x_fill,y_fill,'yellow','HandleVisibility','off');
@@ -46,6 +66,8 @@ for idx_user = 1:1 %size(users_DirsNames,2)
 
         tf_polar = startsWith(csv_names,'polar'); %% take polar file name
         polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
+        polar = retimeSec(polar,1);
+        polar(isnan(polar.rate),:)=[]; %remove NaN to have a continue plot
         plot(polar.time, polar.rate, Color='red', DisplayName='Polar')
 
         tf_fitbit = startsWith(csv_names,'fitbit'); %% take fitbit file name
@@ -101,60 +123,58 @@ for idx_user = 1:1 %size(users_DirsNames,2)
         tf_fitbit = startsWith(csv_names,'fitbit'); %% take fitbit file name
         if(ismember(1,tf_fitbit) == 1)
             fitbit = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_fitbit)));
-
             polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
+            polar = retimeSec(polar,1);
+            polar(isnan(polar.rate),:)=[]; %remove NaN to have a continue plot
 
-            %polar = retimeHR(polar,1); %retime polar with 1 sec to solve duplicates values for same timestamp/Time
+            idCp = ismember(polar.time,fitbit.time);
+            idCf = ismember(fitbit.time,polar.time);
 
-            maxT = max([polar.time(1), fitbit.time(1)]); %take the max of date of the first value and use it as 0 on x-grid
-            polar.sec0Grid = etime(datevec(datenum(polar.time)),datevec(datenum(maxT))); %calculate diff in seconds from the 0 we defined
-            fitbit.sec0Grid = etime(datevec(datenum(fitbit.time)),datevec(datenum(maxT)));
-
-            polar(polar.sec0Grid<0,:)=[];
-            fitbit(fitbit.sec0Grid<0,:)=[];
+            polar(idCp==0,:)=[];
+            fitbit(idCf==0,:)=[];
 
             subplot(221), hold on
-            plot(polar.sec0Grid, polar.rate,Color='red', DisplayName='Polar')
-            plot(fitbit.sec0Grid, fitbit.rate,Color='blue', DisplayName='Fitbit')
+            plot(polar.time, polar.rate,'-o',Color='red', DisplayName='Polar')
+            plot(fitbit.time, fitbit.rate,'-o',Color='blue', DisplayName='Fitbit')
             legend('Location','northwest')
         end
 
         tf_apple = startsWith(csv_names,'apple'); %% take apple file name
         if(ismember(1,tf_apple) == 1)
             apple = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_apple)));
-
             polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
+            polar = retimeSec(polar,1);
+            polar(isnan(polar.rate),:)=[];
 
-            maxT = max([polar.time(1), apple.time(1)]); %take the max of date of the first value and use it as 0 on x-grid
-            polar.sec0Grid = etime(datevec(datenum(polar.time)),datevec(datenum(maxT)));
-            apple.sec0Grid = etime(datevec(datenum(apple.time)),datevec(datenum(maxT)));
+            idCp = ismember(polar.time,apple.time);
+            idCa = ismember(apple.time,polar.time);
 
-            polar(polar.sec0Grid<0,:)=[];
-            apple(apple.sec0Grid<0,:)=[];
+            polar(idCp==0,:)=[];
+            apple(idCa==0,:)=[];
 
             subplot(222),hold on
-            plot(polar.sec0Grid, polar.rate,'Color','red','DisplayName','Polar')
-            plot(apple.sec0Grid, apple.rate,'Color','black','DisplayName','Apple')
+            plot(polar.time, polar.rate,'-o','Color','red','DisplayName','Polar')
+            plot(apple.time, apple.rate,'-o','Color','black','DisplayName','Apple')
             legend('Location','northwest')
 
         end
         tf_withings = startsWith(csv_names,'withings'); %% take withings file name
         if(ismember(1,tf_withings) == 1)
             withings = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_withings)));
-
             polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
+            polar = retimeSec(polar,1);
+            polar(isnan(polar.rate),:)=[];
 
-            maxT = max([polar.time(1), fitbit.time(1)]); %take the max of date of the first value and use it as 0 on x-grid
-            polar.sec0Grid = etime(datevec(datenum(polar.time)),datevec(datenum(maxT)));
-            withings.sec0Grid = etime(datevec(datenum(withings.time)),datevec(datenum(maxT)));
+            idCp = ismember(polar.time,withings.time);
+            idCw = ismember(withings.time,polar.time);
 
-            polar(polar.sec0Grid<0,:)=[];
-            withings(withings.sec0Grid<0,:)=[];
+            polar(idCp==0,:)=[];
+            withings(idCw==0,:)=[];
 
 
             subplot(223),hold on
-            plot(polar.sec0Grid, polar.rate,Color='red', DisplayName='Polar')
-            plot(withings.sec0Grid, withings.rate,Color='green', DisplayName='Withings')
+            plot(polar.time, polar.rate,'-o',Color='red', DisplayName='Polar')
+            plot(withings.time, withings.rate,'-o',Color='green', DisplayName='Withings')
             legend('Location','northwest')
 
         end
@@ -164,17 +184,18 @@ for idx_user = 1:1 %size(users_DirsNames,2)
         if(ismember(1,tf_garmin) == 1)
             garmin = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_garmin)));
             polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
+            polar = retimeSec(polar,1);
+            polar(isnan(polar.rate),:)=[];
 
-            maxT = max([polar.time(1), garmin.time(1)]); %take the max of date of the first value and use it as 0 on x-grid
-            polar.sec0Grid = etime(datevec(datenum(polar.time)),datevec(datenum(maxT)));
-            garmin.sec0Grid = etime(datevec(datenum(garmin.time)),datevec(datenum(maxT)));
+            idCp = ismember(polar.time,garmin.time);
+            idCg = ismember(garmin.time,polar.time);
 
-            polar(polar.sec0Grid<0,:)=[];
-            garmin(garmin.sec0Grid<0,:)=[];
+            polar(idCp==0,:)=[];
+            garmin(idCg==0,:)=[];
 
             subplot(224),hold on
-            plot(polar.time, polar.rate, Color='red', DisplayName='Polar')
-            plot(garmin.time, garmin.rate, Color='yellow', DisplayName='Garmin')
+            plot(polar.time, polar.rate,'-o', Color='red', DisplayName='Polar')
+            plot(garmin.time, garmin.rate,'-o', Color='yellow', DisplayName='Garmin')
             legend('Location','northwest')
 
         end
@@ -192,11 +213,12 @@ for idx_user = 1:1%size(users_DirsNames,2)
     sessions_Dirs = user_fd(user_Flags);
     sessions_DirsNames = {sessions_Dirs(3:end).name};
     sessions_DirsNames = string(sessions_DirsNames);
+    sessions_DirsNames(startsWith(sessions_DirsNames,'Questionnaires')) = []; %remove the Questionnaires folder when i iterate sessions
 
     RMSEmat(idx_user,1) = users_DirsNames(idx_user);
 
     figure() % a figure for each user
-    sgtitle('ID '+ users_DirsNames(idx_user))
+    sgtitle('idUser '+ users_DirsNames(idx_user))
 
     % Loop for sessions for each user (iterate for session)
     for idx_session = 1: size(sessions_DirsNames,2) %i = 1 : 2
@@ -210,61 +232,44 @@ for idx_user = 1:1%size(users_DirsNames,2)
         if(ismember(1,tf_fitbit) == 1)
             fitbit = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_fitbit)));
             polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
-            polar = retimeMStoS(polar,1);
+            polar = retimeSec(polar,1);
+            polar(isnan(polar.rate),:)=[]; %remove NaN to have a continue plot
 
-            maxT = max([polar.time(1), fitbit.time(1)]); %take the max of date of the first value and use it as 0 on x-grid
-            polar.sec0Grid = etime(datevec(datenum(polar.time)),datevec(datenum(maxT)));
-            fitbit.sec0Grid = etime(datevec(datenum(fitbit.time)),datevec(datenum(maxT)));
-            polar(polar.sec0Grid<0,:)=[];
-            fitbit(fitbit.sec0Grid<0,:)=[];
+            idCp = ismember(polar.time,fitbit.time);
+            idCf = ismember(fitbit.time,polar.time);
 
-            idCorresp = ismember(polar.sec0Grid,fitbit.sec0Grid);
-            polar = polar(idCorresp,:);
-            res = fitbit.rate - polar.rate; %how much fitbit is lower/higher than polar
+            polar(idCp==0,:)=[];
+            fitbit(idCf==0,:)=[];
+
+            res = (fitbit.rate - polar.rate)./polar.rate; %how much fitbit is lower/higher than polar in %
             subplot(221), hold on
-            plot(polar.sec0Grid,res,Color='blue');
-            yline(0,'--')
+            plot(polar.time,res,'-o',Color='blue');
+            yline(0,'--k')
             title('Fitbit - Polar')
 
-            idxNaNPolar = isnan(polar.rate);
-            idxNaNFitbit = isnan(fitbit.rate);
-            polar(idxNaNPolar,:)=[];
-            polar(idxNaNFitbit,:)=[];
-            fitbit(idxNaNPolar,:)=[];
-            fitbit(idxNaNFitbit,:)=[];
             RMSEmat(idx_user,2) = sqrt(immse(polar.rate, fitbit.rate)); %RMSE (root mean square error)
-
-
-
         end
 
         tf_apple = startsWith(csv_names,'apple'); %% take apple file name
         if(ismember(1,tf_apple) == 1)
             apple = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_apple)));
             polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
-            polar = retimeMStoS(polar,1);
+            polar = retimeSec(polar,1);
+            polar(isnan(polar.rate),:)=[];
 
-            maxT = max([polar.time(1), apple.time(1)]); %take the max of date of the first value and use it as 0 on x-grid
-            polar.sec0Grid = etime(datevec(datenum(polar.time)),datevec(datenum(maxT)));
-            apple.sec0Grid = etime(datevec(datenum(apple.time)),datevec(datenum(maxT)));
-            polar(polar.sec0Grid<0,:)=[];
-            apple(apple.sec0Grid<0,:)=[];
+            idCp = ismember(polar.time,apple.time);
+            idCa = ismember(apple.time,polar.time);
 
-            idCorresp = ismember(polar.sec0Grid,apple.sec0Grid);
-            polar = polar(idCorresp,:);
-            res = apple.rate - polar.rate; %how much apple is lower/higher than polar
+            polar(idCp==0,:)=[];
+            apple(idCa==0,:)=[];
+
+            res = (apple.rate - polar.rate)./apple.rate; %how much apple is lower/higher than polar in %
 
             subplot(222),hold on
-            plot(polar.sec0Grid,res,Color='black');
-            yline(0,'--')
+            plot(polar.time,res,'-o',Color='black');
+            yline(0,'--k')
             title('Apple - Polar')
 
-            idxNaNPolar = isnan(polar.rate);
-            idxNaNApple = isnan(apple.rate);
-            polar(idxNaNPolar,:)=[];
-            polar(idxNaNApple,:)=[];
-            apple(idxNaNPolar,:)=[];
-            apple(idxNaNApple,:)=[];
             RMSEmat(idx_user,3) = sqrt(immse(polar.rate, apple.rate)); %RMSE (root mean square error)
 
         end
@@ -272,29 +277,22 @@ for idx_user = 1:1%size(users_DirsNames,2)
         if(ismember(1,tf_withings) == 1)
             withings = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_withings)));
             polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
-            polar = retimeMStoS(polar,1);
+            polar = retimeSec(polar,1);
+            polar(isnan(polar.rate),:)=[];
 
-            maxT = max([polar.time(1), withings.time(1)]); %take the max of date of the first value and use it as 0 on x-grid
-            polar.sec0Grid = etime(datevec(datenum(polar.time)),datevec(datenum(maxT)));
-            withings.sec0Grid = etime(datevec(datenum(withings.time)),datevec(datenum(maxT)));
-            polar(polar.sec0Grid<0,:)=[];
-            withings(withings.sec0Grid<0,:)=[];
+            idCp = ismember(polar.time,withings.time);
+            idCw = ismember(withings.time,polar.time);
 
-            idCorresp = ismember(polar.sec0Grid,withings.sec0Grid);
-            polar = polar(idCorresp,:);
-            res = withings.rate - polar.rate; %how much withings is lower/higher than polar
+            polar(idCp==0,:)=[];
+            withings(idCw==0,:)=[];
+
+            res = (withings.rate - polar.rate)./polar.rate; %how much withings is lower/higher than polar in %
 
             subplot(223),hold on
-            plot(polar.sec0Grid,res,Color='green');
-            yline(0,'--')
+            plot(polar.time,res,'-o',Color='green');
+            yline(0,'--k')
             title('Fitbit - Withings')
 
-            idxNaNPolar = isnan(polar.rate);
-            idxNaNWithings = isnan(withings.rate);
-            polar(idxNaNPolar,:)=[];
-            polar(idxNaNWithings,:)=[];
-            withings(idxNaNPolar,:)=[];
-            withings(idxNaNWithings,:)=[];
             RMSEmat(idx_user,4) = sqrt(immse(polar.rate, withings.rate)); %RMSE (root mean square error)
         end
 
@@ -303,30 +301,22 @@ for idx_user = 1:1%size(users_DirsNames,2)
         if(ismember(1,tf_garmin) == 1)
             garmin = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_garmin)));
             polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
-            polar = retimeMStoS(polar,1);
+            polar = retimeSec(polar,1);
+            polar(isnan(polar.rate),:)=[];
 
-            maxT = max([polar.time(1), garmin.time(1)]); %take the max of date of the first value and use it as 0 on x-grid
-            polar.sec0Grid = etime(datevec(datenum(polar.time)),datevec(datenum(maxT)));
-            garmin.sec0Grid = etime(datevec(datenum(garmin.time)),datevec(datenum(maxT)));
-            polar(polar.sec0Grid<0,:)=[];
-            garmin(garmin.sec0Grid<0,:)=[];
+            idCp = ismember(polar.time,garmin.time);
+            idCg = ismember(garmin.time,polar.time);
 
-            idCorresp = ismember(polar.sec0Grid,garmin.sec0Grid);
-            polar = polar(idCorresp,:);
-            garmin(length(idCorresp):end,:)=[]; %TODO:fix
-            res = garmin.rate - polar.rate; %how much withings is lower/higher than polar
+            polar(idCp==0,:)=[];
+            garmin(idCg==0,:)=[];
+
+            res = (garmin.rate - polar.rate)./polar.rate; %how much garmin is lower/higher than polar in %
 
             subplot(223),hold on
-            plot(polar.sec0Grid,res,Color='yellow');
-            yline(0,'--')
+            plot(polar.time,res,'-o',Color='yellow');
+            yline(0,'k--')
             title('Fitbit - Garmin')
 
-            idxNaNPolar = isnan(polar.rate);
-            idxNaNGarmin = isnan(garmin.rate);
-            polar(idxNaNPolar,:)=[];
-            polar(idxNaNGarmin,:)=[];
-            garmin(idxNaNPolar,:)=[];
-            garmin(idxNaNGarmin,:)=[];
             RMSEmat(idx_user,5) = sqrt(immse(polar.rate, garmin.rate)); %RMSE (root mean square error)
 
         end
