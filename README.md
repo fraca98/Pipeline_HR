@@ -5,7 +5,9 @@ pipeline_hr
 │
 │─── pipeline_hr.m 
 │
-|─── retimeHR.m
+|─── appleSessionCutter.m
+|
+|─── appleSessionCutter.m
 |
 └─── data
      │─── 1 
