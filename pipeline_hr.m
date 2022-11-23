@@ -88,7 +88,7 @@ for idx_user = 1:1 %size(users_DirsNames,2)
             plot(withings.time, withings.rate, Color='green', DisplayName='Withings')
         end
 
-        tf_garmin = and(startsWith(csv_names,'garmin'),endsWith(csv_names,'.csv')); %% take garmin file name (.csv)
+        tf_garmin = startsWith(csv_names,'garmin'); %% take garmin file name
         if(ismember(1,tf_garmin) == 1)
             garmin = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_garmin)));
             plot(garmin.time, garmin.rate, Color='yellow', DisplayName='Garmin')
@@ -180,7 +180,7 @@ for idx_user = 1:1 %size(users_DirsNames,2)
         end
 
 
-        tf_garmin = and(startsWith(csv_names,'garmin'), endsWith(csv_names,'.csv')); %% take garmin file name csv
+        tf_garmin = startsWith(csv_names,'garmin'); %% take garmin file name csv
         if(ismember(1,tf_garmin) == 1)
             garmin = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_garmin)));
             polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
@@ -297,7 +297,7 @@ for idx_user = 1:1%size(users_DirsNames,2)
         end
 
 
-        tf_garmin = and(startsWith(csv_names,'garmin'), endsWith(csv_names,'.csv')); %% take garmin file name .csv
+        tf_garmin = startsWith(csv_names,'garmin'); %% take garmin file name .csv
         if(ismember(1,tf_garmin) == 1)
             garmin = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_garmin)));
             polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
@@ -312,7 +312,7 @@ for idx_user = 1:1%size(users_DirsNames,2)
 
             res = (garmin.rate - polar.rate)./polar.rate; %how much garmin is lower/higher than polar in %
 
-            subplot(223),hold on
+            subplot(224),hold on
             plot(polar.time,res,'-o',Color='yellow');
             yline(0,'k--')
             title('Fitbit - Garmin')
@@ -325,10 +325,12 @@ for idx_user = 1:1%size(users_DirsNames,2)
 end
 
 %%
-figure, boxplot(RMSEmat(:,2:end),'Labels',{'Fitbit','Apple','Withings'});
-ylabel('RMSE')
+if size(RMSEmat,1)>=2
+    figure, boxplot(RMSEmat(:,2:end),'Labels',{'Fitbit','Apple','Withings','Garmin'});
+    ylabel('RMSE')
+end
 RMSE = array2table(RMSEmat);
-RMSE.Properties.VariableNames(1:4) = {'ID','Fitbit','Apple','Withings'};
+RMSE.Properties.VariableNames(1:5) = {'ID','Fitbit','Apple','Withings','Garmin'};
 
 
 
