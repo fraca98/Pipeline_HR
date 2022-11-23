@@ -6,7 +6,7 @@ function garminSessionCutter()
 % - save the results in the original .csv file
 
 % dialog box to select the session file
-[fileSession,pathSession] = uigetfile({'session*.csv'},'Select you session');
+[fileSession,pathSession] = uigetfile({'session*.csv','Session'},'Select you session');
 if isequal(fileSession,0)
     error('garminSessionCutter: select a valid session file .csv')
 end
@@ -16,7 +16,7 @@ if(~(strcmp(session.device1{1,1},'Garmin') || strcmp(session.device2{1,1},'Garmi
 end
 
 % dialog box to select the garmin file
-[fileGarmin,pathGarmin] = uigetfile({'*Garmin.json'},'Select you Garmin file');
+[fileGarmin,pathGarmin] = uigetfile({'*Garmin.json','Garmin'},'Select you Garmin file');
 if isequal(fileGarmin,0)
     error('garminSessionCutter: select a valid Garmin file .json')
 end

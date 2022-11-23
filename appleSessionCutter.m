@@ -4,7 +4,7 @@ function appleSessionCutter()
 %   AppleWatch related to that specific session
 
 % dialog box to select the session file
-[fileSession,pathSession] = uigetfile({'session*.csv'},'Select you session');
+[fileSession,pathSession] = uigetfile({'session*.csv','Session'},'Select you session');
 if isequal(fileSession,0)
     error('appleSessionCutter: select a valid session file .csv')
 end
@@ -14,7 +14,7 @@ if(~(strcmp(session.device1{1,1},'Apple Watch') || strcmp(session.device2{1,1},'
 end
 
 % dialog box to select the AppleWatch file to cut for the session
-[fileApple,pathApple] = uigetfile({'AppleWatch*.csv'},'Select you AppleWatch .csv');
+[fileApple,pathApple] = uigetfile({'AppleWatch*.csv','AppleWatch'},'Select you AppleWatch .csv');
 if isequal(fileApple,0)
     error('appleSessionCutter: select a valid AppleWatch file .csv')
 end
