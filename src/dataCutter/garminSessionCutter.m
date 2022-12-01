@@ -16,7 +16,7 @@ if(~(strcmp(session.device1{1,1},'Garmin') || strcmp(session.device2{1,1},'Garmi
 end
 
 % dialog box to select the garmin file
-[fileGarmin,pathGarmin] = uigetfile({'*Garmin.json','Garmin'},'Select you Garmin file');
+[fileGarmin,pathGarmin] = uigetfile({'*.json','Garmin'},'Select you Garmin file');
 if isequal(fileGarmin,0)
     error('garminSessionCutter: select a valid Garmin file .json')
 end

@@ -1,33 +1,25 @@
-function dataRetimed = retimeSec(data, timestep)
-%retimeHR function that retimes the given `data` timetable to a  
-%new timetable with homogeneous `timestep`. It puts nans where heart rate
+function dataRetimed = MStoS(data)
+%MStoS function that retimes the given `data` timetable to a  
+%new timetable with step of 1 sec. It puts nans where heart rate
 %datapoints are missing and it uses mean to solve conflicts (i.e., when two
 %heart rate datapoints have the same retimed timestamp.
 %
 %Inputs:
 %   - data: a timetable with column `time` and `rate` containing the 
 %   heart rate data to retime;
-%   - timestep: an integer (in seconds) defining the timestep to use in the new timetable. 
 %Output:
 %   - dataRetimed: the retimed timetable.
 %
 %Preconditions:
 %   - data must be a timetable;
 %   - data must contain a column named `time` and another named `rate`;
-%   - timestep must be an integer.
 %
 % ------------------------------------------------------------------------
 % 
 %Reference:
-%   - None
+%   - AGATA(C) 2020 Giacomo Cappon
 % 
 % ------------------------------------------------------------------------
-%
-%Copyright of the original script part of AGATA(C) 2020 Giacomo Cappon
-%
-%https://github.com/gcappon/agata/blob/master/src/processing/retimeGlucose.m
-%
-% ---------------------------------------------------------------------
     
     %Check preconditions 
     if(~istimetable(data))
@@ -39,15 +31,12 @@ function dataRetimed = retimeSec(data, timestep)
     if(~any(strcmp(fieldnames(data),'rate')))
         error('retimeHR: data must have a column named `rate`.')
     end
-    if( ~( isnumeric(timestep) && ((timestep - round(timestep)) == 0) ) )
-        error('retimeHR: timestep must be an integer.')
-    end
     
     %Shift to seconds without milliseconds (start)
     data.time = dateshift(data.time, 'start', 'second');
 
     %Create the new timetable
-    newTime = data.time(1):seconds(timestep):data.time(end); %step as seconds define in timestamp
+    newTime = data.time(1):seconds(1):data.time(end); %step as 1 second
     dataRetimed = timetable(nan(length(newTime),1),nan(length(newTime),1),'VariableNames', {'rate','k'}, 'RowTimes', newTime);
     dataRetimed.Properties.DimensionNames{1} = 'time'; %rename column 'Time' to 'time
     

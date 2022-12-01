@@ -1,34 +1,56 @@
 clear
 close all
 clc
+
 %%
+% devices names
+devices = {'Fitbit','Apple','Withings','Garmin'};
+
+% color to plot devices
+colors = {'blue','black','green','magenta'};
+
+%% Plot original data for user
 filePath = matlab.desktop.editor.getActiveFilename; % Get the filepath of the script
 projectPath = fileparts(filePath); % Take directory of folder containing filePath
-dataPath = fullfile(projectPath,'data');
+dataPath = fullfile(projectPath,'data'); %path of folder data
 data_fd = dir(dataPath);
 data_Flags = [data_fd.isdir];
-% Extract only those that are directories.
+% extract only those that are directories.
 users_Dirs = data_fd(data_Flags);
-% Get only the folder names into a cell array.
-users_DirsNames = {users_Dirs(3:end).name};
-users_DirsNames = string(users_DirsNames);
 
-%% Loop in data folder for each user folder (iterate for user)
-for idx_user = 1:1 %size(users_DirsNames,2)
+% get only the folder names into a cell array.
+users_DirsNames = {users_Dirs(3:end).name};
+
+users_DirsNames = string(users_DirsNames);
+% remove not necessary folders
+users_DirsNames(startsWith(users_DirsNames,'Test')) = [];
+users_DirsNames(startsWith(users_DirsNames,'AirQuality')) = [];
+users_DirsNames(startsWith(users_DirsNames,'Garmin')) = [];
+users_DirsNames(startsWith(users_DirsNames,'AppleWatch')) = [];
+
+% loop in data folder for each user folder (iterate for user)
+for idx_user = 1:size(users_DirsNames,2)
     userPath = fullfile(dataPath,users_DirsNames(idx_user));
     user_fd = dir(userPath);
     user_Flags = [user_fd.isdir];
     sessions_Dirs = user_fd(user_Flags);
-    sessions_DirsNames = {sessions_Dirs(3:end).name};
+    sessions_Dirs = sessions_Dirs(3:end); % keep only valid folders
+
+    % sort sessions alphabetically
+    [~,ind] = sort(cellfun(@(x) str2num(char(regexp(x,'\d*','match'))),{sessions_Dirs.name}));
+    sessions_Dirs = sessions_Dirs(ind);
+    sessions_DirsNames = {sessions_Dirs.name};
+
     sessions_DirsNames = string(sessions_DirsNames);
     sessions_DirsNames(startsWith(sessions_DirsNames,'Questionnaires')) = []; %remove the Questionnaires folder when i iterate sessions
+    
     figure()
     sgtitle('idUser '+ users_DirsNames(idx_user))
 
-    % Loop for sessions for each user (iterate for session)
-    for idx_session = 1: size(sessions_DirsNames,2) %i = 1 : 2
+    % loop for sessions for each user (iterate for session)
+    for idx_session = 1: size(sessions_DirsNames,2)
         csvs = dir(fullfile(userPath,sessions_DirsNames(idx_session)));
-        % Get only the folder names into a cell array.
+        % get only the folder names into a cell array.
         csv_names = {csvs(3:end).name};
         csv_names = string(csv_names);
 
@@ -36,26 +58,26 @@ for idx_user = 1:1 %size(users_DirsNames,2)
 
         tf_session = startsWith(csv_names, 'session');
         session = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_session)),"VariableNamingRule",'preserve');
-        %Shift to seconds without milliseconds (start)
+        % shift to seconds without milliseconds (start)
         session.start = dateshift(session.start, 'start', 'second');
         session.end = dateshift(session.end, 'start', 'second');
 
         tf_intervals = startsWith(csv_names, 'intervals');
         intervals = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_intervals)),"VariableNamingRule",'preserve');
-        %Shift to seconds without milliseconds (start)
+        % shift to seconds without milliseconds (start)
         intervals.start = dateshift(intervals.start, 'start', 'second');
         intervals.end = dateshift(intervals.end, 'start', 'second');
 
-        %color from start session to first interval
+        % color from start session to first interval
         x_fill=[session.start,session.start,intervals.start(1),intervals.start(1)];
         y_fill=[0,250,250,0];
         a = fill(x_fill,y_fill,'yellow','HandleVisibility','off');
         a.FaceAlpha = 0.5;
 
-        %plot vertical line for end session (end last interval)
+        % plot vertical line for end session (end last interval)
         xline(session.end,'HandleVisibility','off');
 
-        %color each interval
+        % color each interval
         for k=1:size(intervals,2)-1
             x_fill=[intervals.end(k),intervals.end(k),intervals.start(k+1),intervals.start(k+1)];
             y_fill=[0,250,250,0];
@@ -63,274 +85,178 @@ for idx_user = 1:1 %size(users_DirsNames,2)
             a.FaceAlpha = 0.5;
         end
 
-
         tf_polar = startsWith(csv_names,'polar'); %% take polar file name
-        polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
-        polar = retimeSec(polar,1);
+        polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)),"VariableNamingRule",'preserve');
+        polar = MStoS(polar);
         polar(isnan(polar.rate),:)=[]; %remove NaN to have a continue plot
         plot(polar.time, polar.rate, Color='red', DisplayName='Polar')
 
-        tf_fitbit = startsWith(csv_names,'fitbit'); %% take fitbit file name
-        if(ismember(1,tf_fitbit) == 1)
-            fitbit = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_fitbit)));
-            plot(fitbit.time, fitbit.rate, Color='blue', DisplayName='Fitbit')
+        for i = 1:length(devices)
+            tf = startsWith(csv_names,devices{i},'IgnoreCase',true); %% take file name containing devices data ignoring case sensitive
+            if(ismember(1,tf) == 1)
+                data = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf)),"VariableNamingRule",'preserve');
+                plot(data.time, data.rate, Color=colors{i}, DisplayName=devices{i})
+            end
+            ylim([35 200]);
+            set(gca,'FontSize',13)
+            legend('Location','eastoutside')
         end
-
-        tf_apple = startsWith(csv_names,'apple'); %% take apple file name
-        if(ismember(1,tf_apple) == 1)
-            apple = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_apple)));
-            plot(apple.time, apple.rate, Color='black', DisplayName='Apple')
-        end
-
-        tf_withings = startsWith(csv_names,'withings'); %% take withings file name
-        if(ismember(1,tf_withings) == 1)
-            withings = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_withings)));
-            plot(withings.time, withings.rate, Color='green', DisplayName='Withings')
-        end
-
-        tf_garmin = startsWith(csv_names,'garmin'); %% take garmin file name
-        if(ismember(1,tf_garmin) == 1)
-            garmin = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_garmin)));
-            plot(garmin.time, garmin.rate, Color='yellow', DisplayName='Garmin')
-        end
-        ylim([35 200]);
-        set(gca,'FontSize',13)
-        legend('Location','eastoutside')
     end
 end
 
-%% Creation TimeTable and retiming
-for idx_user = 1:1 %size(users_DirsNames,2)
+%% A) Signal analysis
+%% A.1) Metrics for entire session, all transitions together, all heart rate zones, all transitions one by one
+% - RMSE
+% - COD
+% - MARD
+% - MAD
+% - MAE
+
+Headers = {'Type','Fitbit','Apple','Withings','Garmin'};
+% Create empty tables to store metrics
+RMSE = cell2table(cell(0,length(Headers)),VariableNames = Headers);
+COD = cell2table(cell(0,length(Headers)),VariableNames = Headers);
+MARD = cell2table(cell(0,length(Headers)),VariableNames = Headers);
+MAE = cell2table(cell(0,length(Headers)),VariableNames = Headers);
+
+
+for idx_user = 1:size(users_DirsNames,2)
     userPath = fullfile(dataPath,users_DirsNames(idx_user));
     user_fd = dir(userPath);
     user_Flags = [user_fd.isdir];
     sessions_Dirs = user_fd(user_Flags);
-    sessions_DirsNames = {sessions_Dirs(3:end).name};
+     sessions_Dirs = sessions_Dirs(3:end); % keep only valid folders
+
+    % sort sessions alphabetically
+    [~,ind] = sort(cellfun(@(x) str2num(char(regexp(x,'\d*','match'))),{sessions_Dirs.name}));
+    sessions_Dirs = sessions_Dirs(ind);
+    sessions_DirsNames = {sessions_Dirs.name};
+
     sessions_DirsNames = string(sessions_DirsNames);
     sessions_DirsNames(startsWith(sessions_DirsNames,'Questionnaires')) = []; %remove the Questionnaires folder when i iterate sessions
-
-    figure() % a figure for each user
-    sgtitle('idUser '+ users_DirsNames(idx_user))
-
-    % Loop for sessions for each user (iterate for session)
-    for idx_session = 1: size(sessions_DirsNames,2) %i = 1 : 2
+    
+    % loop for sessions for each user (iterate for session)
+    for idx_session = 1: size(sessions_DirsNames,2)
         csvs = dir(fullfile(userPath,sessions_DirsNames(idx_session)));
-        % Get only the folder names into a cell array.
+        % get only the folder names into a cell array
         csv_names = {csvs(3:end).name};
         csv_names = string(csv_names);
 
         tf_polar = startsWith(csv_names,'polar'); %% take polar file name
-        tf_fitbit = startsWith(csv_names,'fitbit'); %% take fitbit file name
-        if(ismember(1,tf_fitbit) == 1)
-            fitbit = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_fitbit)));
-            polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
-            polar = retimeSec(polar,1);
-            polar(isnan(polar.rate),:)=[]; %remove NaN to have a continue plot
+        polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)),"VariableNamingRule",'preserve');
+        polar = MStoS(polar);
 
-            idCp = ismember(polar.time,fitbit.time);
-            idCf = ismember(fitbit.time,polar.time);
+        % TODO
 
-            polar(idCp==0,:)=[];
-            fitbit(idCf==0,:)=[];
-
-            subplot(221), hold on
-            plot(polar.time, polar.rate,'-o',Color='red', DisplayName='Polar')
-            plot(fitbit.time, fitbit.rate,'-o',Color='blue', DisplayName='Fitbit')
-            legend('Location','northwest')
+        for i = 1:length(devices)
+            tf = startsWith(csv_names,devices{i},'IgnoreCase',true); %% take file name containing devices data ignoring case sensitive
+            if(ismember(1,tf) == 1)
+                data = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf)),"VariableNamingRule",'preserve');
+            end
         end
-
-        tf_apple = startsWith(csv_names,'apple'); %% take apple file name
-        if(ismember(1,tf_apple) == 1)
-            apple = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_apple)));
-            polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
-            polar = retimeSec(polar,1);
-            polar(isnan(polar.rate),:)=[];
-
-            idCp = ismember(polar.time,apple.time);
-            idCa = ismember(apple.time,polar.time);
-
-            polar(idCp==0,:)=[];
-            apple(idCa==0,:)=[];
-
-            subplot(222),hold on
-            plot(polar.time, polar.rate,'-o','Color','red','DisplayName','Polar')
-            plot(apple.time, apple.rate,'-o','Color','black','DisplayName','Apple')
-            legend('Location','northwest')
-
-        end
-        tf_withings = startsWith(csv_names,'withings'); %% take withings file name
-        if(ismember(1,tf_withings) == 1)
-            withings = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_withings)));
-            polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
-            polar = retimeSec(polar,1);
-            polar(isnan(polar.rate),:)=[];
-
-            idCp = ismember(polar.time,withings.time);
-            idCw = ismember(withings.time,polar.time);
-
-            polar(idCp==0,:)=[];
-            withings(idCw==0,:)=[];
-
-
-            subplot(223),hold on
-            plot(polar.time, polar.rate,'-o',Color='red', DisplayName='Polar')
-            plot(withings.time, withings.rate,'-o',Color='green', DisplayName='Withings')
-            legend('Location','northwest')
-
-        end
-
-
-        tf_garmin = startsWith(csv_names,'garmin'); %% take garmin file name csv
-        if(ismember(1,tf_garmin) == 1)
-            garmin = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_garmin)));
-            polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
-            polar = retimeSec(polar,1);
-            polar(isnan(polar.rate),:)=[];
-
-            idCp = ismember(polar.time,garmin.time);
-            idCg = ismember(garmin.time,polar.time);
-
-            polar(idCp==0,:)=[];
-            garmin(idCg==0,:)=[];
-
-            subplot(224),hold on
-            plot(polar.time, polar.rate,'-o', Color='red', DisplayName='Polar')
-            plot(garmin.time, garmin.rate,'-o', Color='yellow', DisplayName='Garmin')
-            legend('Location','northwest')
-
-        end
-
     end
 end
 
-%% Calculate differences and RMSE %TODO: fix here retime polar with new data type
-RMSEmat = [];
+%% A.2) Calculation on the entire signal for
+% - Delay
+% - Cross-correlation
+% - R^2
 
-for idx_user = 1:1%size(users_DirsNames,2)
+Headers = {'idUser','idSession','Fitbit','Apple','Withings','Garmin'};
+% Create empty tables to store metrics
+DELAY = cell2table(cell(0,length(Headers)),VariableNames = Headers);
+CROSSCORR = cell2table(cell(0,length(Headers)),VariableNames = Headers);
+R2 = cell2table(cell(0,length(Headers)),VariableNames = Headers); % already defined as COD(?)
+
+%% B) Session analysis
+% - Mean
+% - SD
+% - Median
+% - 25/75 boxplot
+
+Headers = {'idUser','idSession','Polar','Fitbit','Apple','Withings','Garmin'};
+% Create empty tables to store metrics
+SessionMean = cell2table(cell(0,length(Headers)),VariableNames = Headers);
+SessionMedian = cell2table(cell(0,length(Headers)),VariableNames = Headers);
+SessionSD = cell2table(cell(0,length(Headers)),VariableNames = Headers);
+Session25p = cell2table(cell(0,length(Headers)),VariableNames = Headers);
+Session75p = cell2table(cell(0,length(Headers)),VariableNames = Headers);
+
+
+for idx_user = 1:size(users_DirsNames,2)
     userPath = fullfile(dataPath,users_DirsNames(idx_user));
     user_fd = dir(userPath);
     user_Flags = [user_fd.isdir];
     sessions_Dirs = user_fd(user_Flags);
-    sessions_DirsNames = {sessions_Dirs(3:end).name};
+    sessions_Dirs = sessions_Dirs(3:end); % keep only valid folders
+
+    % sort sessions alphabetically
+    [~,ind] = sort(cellfun(@(x) str2num(char(regexp(x,'\d*','match'))),{sessions_Dirs.name}));
+    sessions_Dirs = sessions_Dirs(ind);
+    sessions_DirsNames = {sessions_Dirs.name};
+
     sessions_DirsNames = string(sessions_DirsNames);
     sessions_DirsNames(startsWith(sessions_DirsNames,'Questionnaires')) = []; %remove the Questionnaires folder when i iterate sessions
-
-    RMSEmat(idx_user,1) = users_DirsNames(idx_user);
-
-    figure() % a figure for each user
-    sgtitle('idUser '+ users_DirsNames(idx_user))
-
+    
     % Loop for sessions for each user (iterate for session)
-    for idx_session = 1: size(sessions_DirsNames,2) %i = 1 : 2
+    for idx_session = 1: size(sessions_DirsNames,2)
         csvs = dir(fullfile(userPath,sessions_DirsNames(idx_session)));
-        % Get only the folder names into a cell array.
+        % Get only the folder names into a cell array
         csv_names = {csvs(3:end).name};
         csv_names = string(csv_names);
 
+        rowMean = cell(1,length(Headers));
+        rowMean(:) = {NaN(1,1)};
+        rowMedian = cell(1,length(Headers));
+        rowMedian(:) = {NaN(1,1)};
+        rowSD = cell(1,length(Headers));
+        rowSD(:) = {NaN(1,1)};
+        row25p = cell(1,length(Headers));
+        row25p(:) = {NaN(1,1)};
+        row75p = cell(1,length(Headers));
+        row75p(:) = {NaN(1,1)};
+
+        tf_session = startsWith(csv_names, 'session');
+        session = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_session)),"VariableNamingRule",'preserve');
+        
+        rowMean{1} = session.iduser;
+        rowMean{2} = session.id;
+        rowMedian{1} = session.iduser;
+        rowMedian{2} = session.id;
+        rowSD{1} = session.iduser;
+        rowSD{2} = session.id;
+        row25p{1} = session.iduser;
+        row25p{2} = session.id;
+        row75p{1} = session.iduser;
+        row75p{2} = session.id;
+
         tf_polar = startsWith(csv_names,'polar'); %% take polar file name
-        tf_fitbit = startsWith(csv_names,'fitbit'); %% take fitbit file name
-        if(ismember(1,tf_fitbit) == 1)
-            fitbit = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_fitbit)));
-            polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
-            polar = retimeSec(polar,1);
-            polar(isnan(polar.rate),:)=[]; %remove NaN to have a continue plot
+        polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)),"VariableNamingRule",'preserve');
+        polar = MStoS(polar);
 
-            idCp = ismember(polar.time,fitbit.time);
-            idCf = ismember(fitbit.time,polar.time);
+        rowMean{3} = nanmean(polar.rate);
+        rowMedian{3} = nanmedian(polar.rate);
+        rowSD{3} = nanstd(polar.rate);
+        row25p{3} = prctile(polar.rate,25);
+        row75p{3} = prctile(polar.rate,75);
 
-            polar(idCp==0,:)=[];
-            fitbit(idCf==0,:)=[];
+        for i = 1:length(devices)
+            tf = startsWith(csv_names,devices{i},'IgnoreCase',true); %% take file name containing devices data ignoring case sensitive
+            if(ismember(1,tf) == 1)
+                data = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf)),"VariableNamingRule",'preserve');
 
-            res = (fitbit.rate - polar.rate)./polar.rate; %how much fitbit is lower/higher than polar in %
-            subplot(221), hold on
-            plot(polar.time,res,'-o',Color='blue');
-            yline(0,'--k')
-            title('Fitbit - Polar')
-
-            RMSEmat(idx_user,2) = sqrt(immse(polar.rate, fitbit.rate)); %RMSE (root mean square error)
+                rowMean{3+i} = nanmean(data.rate);
+                rowMedian{3+i} = nanmedian(data.rate);
+                rowSD{3+i} = nanstd(data.rate);
+                row25p{3+i} = prctile(data.rate,25);
+                row75p{3+i} = prctile(data.rate,75);
+            end
         end
-
-        tf_apple = startsWith(csv_names,'apple'); %% take apple file name
-        if(ismember(1,tf_apple) == 1)
-            apple = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_apple)));
-            polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
-            polar = retimeSec(polar,1);
-            polar(isnan(polar.rate),:)=[];
-
-            idCp = ismember(polar.time,apple.time);
-            idCa = ismember(apple.time,polar.time);
-
-            polar(idCp==0,:)=[];
-            apple(idCa==0,:)=[];
-
-            res = (apple.rate - polar.rate)./apple.rate; %how much apple is lower/higher than polar in %
-
-            subplot(222),hold on
-            plot(polar.time,res,'-o',Color='black');
-            yline(0,'--k')
-            title('Apple - Polar')
-
-            RMSEmat(idx_user,3) = sqrt(immse(polar.rate, apple.rate)); %RMSE (root mean square error)
-
-        end
-        tf_withings = startsWith(csv_names,'withings'); %% take withings file name
-        if(ismember(1,tf_withings) == 1)
-            withings = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_withings)));
-            polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
-            polar = retimeSec(polar,1);
-            polar(isnan(polar.rate),:)=[];
-
-            idCp = ismember(polar.time,withings.time);
-            idCw = ismember(withings.time,polar.time);
-
-            polar(idCp==0,:)=[];
-            withings(idCw==0,:)=[];
-
-            res = (withings.rate - polar.rate)./polar.rate; %how much withings is lower/higher than polar in %
-
-            subplot(223),hold on
-            plot(polar.time,res,'-o',Color='green');
-            yline(0,'--k')
-            title('Fitbit - Withings')
-
-            RMSEmat(idx_user,4) = sqrt(immse(polar.rate, withings.rate)); %RMSE (root mean square error)
-        end
-
-
-        tf_garmin = startsWith(csv_names,'garmin'); %% take garmin file name .csv
-        if(ismember(1,tf_garmin) == 1)
-            garmin = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_garmin)));
-            polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)));
-            polar = retimeSec(polar,1);
-            polar(isnan(polar.rate),:)=[];
-
-            idCp = ismember(polar.time,garmin.time);
-            idCg = ismember(garmin.time,polar.time);
-
-            polar(idCp==0,:)=[];
-            garmin(idCg==0,:)=[];
-
-            res = (garmin.rate - polar.rate)./polar.rate; %how much garmin is lower/higher than polar in %
-
-            subplot(224),hold on
-            plot(polar.time,res,'-o',Color='yellow');
-            yline(0,'k--')
-            title('Fitbit - Garmin')
-
-            RMSEmat(idx_user,5) = sqrt(immse(polar.rate, garmin.rate)); %RMSE (root mean square error)
-
-        end
-
+        SessionMean = [SessionMean;rowMean];
+        SessionMedian = [SessionMedian;rowMedian];
+        SessionSD = [SessionSD;rowSD];
+        Session25p = [Session25p;row25p];
+        Session75p = [Session75p;row75p];
     end
 end
-
-%%
-if size(RMSEmat,1)>=2
-    figure, boxplot(RMSEmat(:,2:end),'Labels',{'Fitbit','Apple','Withings','Garmin'});
-    ylabel('RMSE')
-end
-RMSE = array2table(RMSEmat);
-RMSE.Properties.VariableNames(1:5) = {'ID','Fitbit','Apple','Withings','Garmin'};
-
-
 

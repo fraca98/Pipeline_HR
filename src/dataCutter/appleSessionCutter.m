@@ -14,7 +14,7 @@ if(~(strcmp(session.device1{1,1},'Apple Watch') || strcmp(session.device2{1,1},'
 end
 
 % dialog box to select the AppleWatch file to cut for the session
-[fileApple,pathApple] = uigetfile({'AppleWatch*.csv','AppleWatch'},'Select you AppleWatch .csv');
+[fileApple,pathApple] = uigetfile({'*.csv','AppleWatch'},'Select you AppleWatch .csv');
 if isequal(fileApple,0)
     error('appleSessionCutter: select a valid AppleWatch file .csv')
 end
@@ -30,7 +30,7 @@ if(valid==0)
 end
 
 apple = apple(idx_bet,:);
-nameCsv = strcat('applewatch_',num2str(session.idUser),'_',num2str(session.id),'.csv'); %create name of the new .csv file
+nameCsv = strcat('applewatch_',num2str(session.iduser),'_',num2str(session.id),'.csv'); %create name of the new .csv file
 writetimetable(apple,fullfile(pathSession,nameCsv));
 display(strcat('Exported file:',nameCsv));
 end
