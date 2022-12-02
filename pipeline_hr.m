@@ -2,6 +2,7 @@ clear
 close all
 clc
 
+addpath(genpath("src"));
 %%
 % devices names
 devices = {'Fitbit','Apple','Withings','Garmin'};
@@ -9,7 +10,7 @@ devices = {'Fitbit','Apple','Withings','Garmin'};
 % color to plot devices
 colors = {'blue','black','green','magenta'};
 
-%% Plot original data for user
+%% Plot sessions adjusting polar data to Seconds (No more considering Ms)
 filePath = matlab.desktop.editor.getActiveFilename; % Get the filepath of the script
 projectPath = fileparts(filePath); % Take directory of folder containing filePath
 dataPath = fullfile(projectPath,'data'); %path of folder data
@@ -43,6 +44,13 @@ for idx_user = 1:size(users_DirsNames,2)
 
     sessions_DirsNames = string(sessions_DirsNames);
     sessions_DirsNames(startsWith(sessions_DirsNames,'Questionnaires')) = []; %remove the Questionnaires folder when i iterate sessions
+
+    csvs = dir(fullfile(userPath));
+    % get only the folder names into a cell array.
+    csv_names = {csvs(3:end).name};
+    csv_names = string(csv_names);
+    tf_user = startsWith(csv_names,'user');
+    user = readtable(fullfile(userPath, csv_names(tf_user)),"VariableNamingRule",'preserve');
     
     figure()
     sgtitle('idUser '+ users_DirsNames(idx_user))
@@ -76,6 +84,16 @@ for idx_user = 1:size(users_DirsNames,2)
 
         % plot vertical line for end session (end last interval)
         xline(session.end,'HandleVisibility','off');
+
+        % plot Y-lines to identify heart rate zones
+        for z = 1:length(intervals.start)
+            if z~=length(intervals.start)
+                line([intervals.start(z) intervals.end(z)],[(0.5 + 0.1*(z-1))*(220-(session.start.Year-user.birthYear)) (0.5 + 0.1*(z-1))*(220-(session.start.Year-user.birthYear))],'HandleVisibility','off','LineStyle','--')
+            end
+            if z~=1
+                line([intervals.start(z) intervals.end(z)],[(0.5 + 0.1*(z-2))*(220-(session.start.Year-user.birthYear)) (0.5 + 0.1*(z-2))*(220-(session.start.Year-user.birthYear))],'HandleVisibility','off','LineStyle','--')
+            end
+        end
 
         % color each interval
         for k=1:size(intervals,2)-1
@@ -168,7 +186,7 @@ DELAY = cell2table(cell(0,length(Headers)),VariableNames = Headers);
 CROSSCORR = cell2table(cell(0,length(Headers)),VariableNames = Headers);
 R2 = cell2table(cell(0,length(Headers)),VariableNames = Headers); % already defined as COD(?)
 
-%% B) Session analysis
+%% B) Session analysis (Metrics calculated on the entire session)
 % - Mean
 % - SD
 % - Median

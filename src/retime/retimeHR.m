@@ -41,7 +41,7 @@ function dataRetimed = retimeHR(data, timestep)
     data.time.Second(1) = round(data.time.Second(1)/60)*60;
     newTime = data.time(1):seconds(timestep):data.time(end);
     dataRetimed = timetable(nan(length(newTime),1),nan(length(newTime),1),'VariableNames', {'rate','k'}, 'RowTimes', newTime);
-    dataRetimed.Properties.DimensionNames{1} = 'time'; %rename column 'Time' to 'time
+    dataRetimed.Properties.DimensionNames{1} = 'time'; %rename column 'Time' to 'time'
     
     %Remove nan entries from data
     data = data(~isnan(data.rate),:);
