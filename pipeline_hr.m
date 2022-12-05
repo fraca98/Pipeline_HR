@@ -20,14 +20,20 @@ data_Flags = [data_fd.isdir];
 users_Dirs = data_fd(data_Flags);
 
 % get only the folder names into a cell array.
-users_DirsNames = {users_Dirs(3:end).name};
+users_Dirs = users_Dirs(3:end);
+
+% remove not necessary folders
+users_Dirs(startsWith({users_Dirs.name},'Test')) = [];
+users_Dirs(startsWith({users_Dirs.name},'AirQuality')) = [];
+users_Dirs(startsWith({users_Dirs.name},'Garmin')) = [];
+users_Dirs(startsWith({users_Dirs.name},'AppleWatch')) = [];
+
+% sort users alphabetically
+[~,ind] = sort(cellfun(@(x) str2num(char(regexp(x,'\d*','match'))),{users_Dirs.name}));
+users_Dirs = users_Dirs(ind);
+users_DirsNames = {users_Dirs.name};
 
 users_DirsNames = string(users_DirsNames);
-% remove not necessary folders
-users_DirsNames(startsWith(users_DirsNames,'Test')) = [];
-users_DirsNames(startsWith(users_DirsNames,'AirQuality')) = [];
-users_DirsNames(startsWith(users_DirsNames,'Garmin')) = [];
-users_DirsNames(startsWith(users_DirsNames,'AppleWatch')) = [];
 
 % loop in data folder for each user folder (iterate for user)
 for idx_user = 1:size(users_DirsNames,2)
@@ -51,7 +57,7 @@ for idx_user = 1:size(users_DirsNames,2)
     csv_names = string(csv_names);
     tf_user = startsWith(csv_names,'user');
     user = readtable(fullfile(userPath, csv_names(tf_user)),"VariableNamingRule",'preserve');
-    
+
     figure()
     sgtitle('idUser '+ users_DirsNames(idx_user))
 
@@ -112,7 +118,7 @@ for idx_user = 1:size(users_DirsNames,2)
         for i = 1:length(devices)
             tf = startsWith(csv_names,devices{i},'IgnoreCase',true); %% take file name containing devices data ignoring case sensitive
             if(ismember(1,tf) == 1)
-                data = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf)),"VariableNamingRule",'preserve');
+                data = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf)),'VariableNamingRule','preserve');
                 plot(data.time, data.rate, Color=colors{i}, DisplayName=devices{i})
             end
             ylim([35 200]);
@@ -143,7 +149,7 @@ for idx_user = 1:size(users_DirsNames,2)
     user_fd = dir(userPath);
     user_Flags = [user_fd.isdir];
     sessions_Dirs = user_fd(user_Flags);
-     sessions_Dirs = sessions_Dirs(3:end); % keep only valid folders
+    sessions_Dirs = sessions_Dirs(3:end); % keep only valid folders
 
     % sort sessions alphabetically
     [~,ind] = sort(cellfun(@(x) str2num(char(regexp(x,'\d*','match'))),{sessions_Dirs.name}));
@@ -152,7 +158,7 @@ for idx_user = 1:size(users_DirsNames,2)
 
     sessions_DirsNames = string(sessions_DirsNames);
     sessions_DirsNames(startsWith(sessions_DirsNames,'Questionnaires')) = []; %remove the Questionnaires folder when i iterate sessions
-    
+
     % loop for sessions for each user (iterate for session)
     for idx_session = 1: size(sessions_DirsNames,2)
         csvs = dir(fullfile(userPath,sessions_DirsNames(idx_session)));
@@ -163,13 +169,15 @@ for idx_user = 1:size(users_DirsNames,2)
         tf_polar = startsWith(csv_names,'polar'); %% take polar file name
         polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)),"VariableNamingRule",'preserve');
         polar = MStoS(polar);
-
-        % TODO
+        polar = retimeHR(polar,1); %TODO
 
         for i = 1:length(devices)
             tf = startsWith(csv_names,devices{i},'IgnoreCase',true); %% take file name containing devices data ignoring case sensitive
             if(ismember(1,tf) == 1)
                 data = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf)),"VariableNamingRule",'preserve');
+
+                data = retimeHR(data,5); %TODO
+
             end
         end
     end
@@ -185,6 +193,49 @@ Headers = {'idUser','idSession','Fitbit','Apple','Withings','Garmin'};
 DELAY = cell2table(cell(0,length(Headers)),VariableNames = Headers);
 CROSSCORR = cell2table(cell(0,length(Headers)),VariableNames = Headers);
 R2 = cell2table(cell(0,length(Headers)),VariableNames = Headers); % already defined as COD(?)
+
+%TODO: Excluding the first part?
+
+
+
+for idx_user = 1:size(users_DirsNames,2)
+    userPath = fullfile(dataPath,users_DirsNames(idx_user));
+    user_fd = dir(userPath);
+    user_Flags = [user_fd.isdir];
+    sessions_Dirs = user_fd(user_Flags);
+    sessions_Dirs = sessions_Dirs(3:end); % keep only valid folders
+
+    % sort sessions alphabetically
+    [~,ind] = sort(cellfun(@(x) str2num(char(regexp(x,'\d*','match'))),{sessions_Dirs.name}));
+    sessions_Dirs = sessions_Dirs(ind);
+    sessions_DirsNames = {sessions_Dirs.name};
+
+    sessions_DirsNames = string(sessions_DirsNames);
+    sessions_DirsNames(startsWith(sessions_DirsNames,'Questionnaires')) = []; %remove the Questionnaires folder when i iterate sessions
+
+    % loop for sessions for each user (iterate for session)
+    for idx_session = 1: size(sessions_DirsNames,2)
+        csvs = dir(fullfile(userPath,sessions_DirsNames(idx_session)));
+        % get only the folder names into a cell array
+        csv_names = {csvs(3:end).name};
+        csv_names = string(csv_names);
+
+        tf_polar = startsWith(csv_names,'polar'); %% take polar file name
+        polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)),"VariableNamingRule",'preserve');
+        polar = MStoS(polar);
+        polar = retimeHR(polar,5); %TODO
+
+        for i = 1:length(devices)
+            tf = startsWith(csv_names,devices{i},'IgnoreCase',true); %% take file name containing devices data ignoring case sensitive
+            if(ismember(1,tf) == 1)
+                data = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf)),"VariableNamingRule",'preserve');
+
+                data = retimeHR(data,5); %TODO
+
+            end
+        end
+    end
+end
 
 %% B) Session analysis (Metrics calculated on the entire session)
 % - Mean
@@ -215,7 +266,7 @@ for idx_user = 1:size(users_DirsNames,2)
 
     sessions_DirsNames = string(sessions_DirsNames);
     sessions_DirsNames(startsWith(sessions_DirsNames,'Questionnaires')) = []; %remove the Questionnaires folder when i iterate sessions
-    
+
     % Loop for sessions for each user (iterate for session)
     for idx_session = 1: size(sessions_DirsNames,2)
         csvs = dir(fullfile(userPath,sessions_DirsNames(idx_session)));
@@ -236,7 +287,7 @@ for idx_user = 1:size(users_DirsNames,2)
 
         tf_session = startsWith(csv_names, 'session');
         session = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_session)),"VariableNamingRule",'preserve');
-        
+
         rowMean{1} = session.iduser;
         rowMean{2} = session.id;
         rowMedian{1} = session.iduser;

@@ -1,13 +1,17 @@
-function dataRetimed = retimeHR(data, timestep)
+function dataRetimed = retimeHR(data, timestep,startdate,enddate)
 %retimeHR function that retimes the given `data` timetable to a  
-%new timetable with homogeneous `timestep`. It puts nans where heart rate
-%datapoints are missing and it uses mean to solve conflicts (i.e., when two
-%heart rate datapoints have the same retimed timestamp.
+%new timetable with homogeneous `timestep`. If defined `startdate` and `enddate`
+%the new time grid will be created with the following dates at start and end.
+%It puts nans where heart rate datapoints are missing and it uses mean to solve
+%conflicts (i.e., when two heart rate datapoints have the same retimed timestamp)S.
 %
 %Inputs:
 %   - data: a timetable with column `time` and `rate` containing the 
 %   heart rate data to retime;
-%   - timestep: an integer (in seconds) defining the timestep to use in the new timetable. 
+%   - timestep: an integer (in seconds) defining the timestep to use in the new timetable.
+%   - startdate: a date defining the initial date of the new time grid.
+%   Optional
+%   - enddate: a date defining the final date of the new time grid. Optional 
 %Output:
 %   - dataRetimed: the retimed timetable.
 %
@@ -38,8 +42,14 @@ function dataRetimed = retimeHR(data, timestep)
     end
 
     %Create the new timetable
-    data.time.Second(1) = round(data.time.Second(1)/60)*60;
-    newTime = data.time(1):seconds(timestep):data.time(end);
+    if (nargin == 2)
+        newTime = data.time(1):seconds(timestep):data.time(end);
+    elseif (nargin == 4)
+        newTime = startdate:seconds(timestep):enddate;
+    else
+        error('retimeHR: wrong input arguments.')
+    end
+
     dataRetimed = timetable(nan(length(newTime),1),nan(length(newTime),1),'VariableNames', {'rate','k'}, 'RowTimes', newTime);
     dataRetimed.Properties.DimensionNames{1} = 'time'; %rename column 'Time' to 'time'
     

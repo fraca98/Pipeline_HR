@@ -19,9 +19,13 @@ if isequal(fileApple,0)
     error('appleSessionCutter: select a valid AppleWatch file .csv')
 end
 
-apple = readtable(fullfile(pathApple,fileApple));
-apple= apple(:,{'time','rate'});
+opts = detectImportOptions(fullfile(pathApple,fileApple));
+opts = setvaropts(opts,{'time','created_at','updated_at'},'InputFormat','dd/MM/uuuu HH:mm:ss');
+
+apple = readtable(fullfile(pathApple,fileApple),opts);
+apple = apple(:,{'time','rate'});
 apple = table2timetable(apple);
+apple.time.Format = 'yyyy-MM-dd HH:mm:ss'; %convert datetime format
 
 idx_bet = isbetween(apple.time,session.start, session.end); %check where values of time in Apple are between & equal start/end of session
 valid = sum(idx_bet==1); %find number of valid entries (marked as 1 if between)
