@@ -64,6 +64,6 @@ function timeDelay = timeDelay(data,dataHat)
     idx = find(~isnan(dataHat.rate) & ~isnan(data.rate));
     
     %Compute metric
-    timeDelay = finddelay( data.rate(idx), dataHat.rate(idx)) * minutes(data.time(2)-data.time(1));
+    timeDelay = finddelay(data.rate(idx), dataHat.rate(idx)) * minutes(data.time(2)-data.time(1));
     
 end

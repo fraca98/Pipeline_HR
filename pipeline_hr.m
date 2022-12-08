@@ -113,7 +113,7 @@ for idx_user = 1:size(users_DirsNames,2)
         polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)),"VariableNamingRule",'preserve');
         polar = MStoS(polar);
         polar(isnan(polar.rate),:)=[]; %remove NaN to have a continue plot
-        plot(polar.time, polar.rate, Color='red', DisplayName='Polar')
+        plot(polar.time, polar.rate,'b.', Color='red', DisplayName='Polar')
 
         for i = 1:length(devices)
             tf = startsWith(csv_names,devices{i},'IgnoreCase',true); %% take file name containing devices data ignoring case sensitive
@@ -133,18 +133,16 @@ end
 % - RMSE
 % - COD
 % - MARD
-% - MAD
+% ??? - MAD
 % - MAE
 
-Headers = {'Type','Fitbit','Apple','Withings','Garmin'};
-% Create empty tables to store metrics
-RMSE = cell2table(cell(0,length(Headers)),VariableNames = Headers);
-COD = cell2table(cell(0,length(Headers)),VariableNames = Headers);
-MARD = cell2table(cell(0,length(Headers)),VariableNames = Headers);
-MAE = cell2table(cell(0,length(Headers)),VariableNames = Headers);
-
-
 for idx_user = 1:size(users_DirsNames,2)
+
+    ALL_RMSE(idx_user,1)=str2num(users_DirsNames(idx_user));
+    ALL_COD(idx_user,1)=str2num(users_DirsNames(idx_user));
+    ALL_MARD(idx_user,1)=str2num(users_DirsNames(idx_user));
+    ALL_MAE(idx_user,1)=str2num(users_DirsNames(idx_user));
+        
     userPath = fullfile(dataPath,users_DirsNames(idx_user));
     user_fd = dir(userPath);
     user_Flags = [user_fd.isdir];
@@ -166,17 +164,57 @@ for idx_user = 1:size(users_DirsNames,2)
         csv_names = {csvs(3:end).name};
         csv_names = string(csv_names);
 
+        tf_intervals = startsWith(csv_names, 'intervals');
+        intervals = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_intervals)),"VariableNamingRule",'preserve');
+        % shift to seconds without milliseconds (start)
+        intervals.start = dateshift(intervals.start, 'start', 'second');
+        intervals.end = dateshift(intervals.end, 'start', 'second');
+
         tf_polar = startsWith(csv_names,'polar'); %% take polar file name
         polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)),"VariableNamingRule",'preserve');
         polar = MStoS(polar);
-        polar = retimeHR(polar,1); %TODO
+        polar = retimeHR(polar,5);
 
         for i = 1:length(devices)
             tf = startsWith(csv_names,devices{i},'IgnoreCase',true); %% take file name containing devices data ignoring case sensitive
             if(ismember(1,tf) == 1)
                 data = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf)),"VariableNamingRule",'preserve');
+                data = retimeHR(data,5,polar.time(1),polar.time(end));
 
-                data = retimeHR(data,5); %TODO
+                % Now calculating the errorMetrics
+
+                % 1) Entire signal (from the start of the first interval to
+                % the end of the session or last interval. Transitions are
+                % included)
+                allpolar = polar(isbetween(polar.time,intervals.start(1),intervals.end(end)),:);
+                alldata = data(isbetween(data.time,intervals.start(1),intervals.end(end)),:);
+
+                ALL_RMSE(idx_user,i+1)=rmse(allpolar,alldata);
+                ALL_COD(idx_user,i+1)=cod(allpolar,alldata);
+                ALL_MARD(idx_user,i+1)=mard(allpolar,alldata);
+                ALL_MAE(idx_user,i+1)=mae(allpolar,alldata);
+
+                % 2) Each transition
+                for tr = 1 : length(intervals.start)-1
+                    trpolar = polar(isbetween(polar.time,intervals.end(tr),intervals.start(tr+1)),:);
+                    trdata = data(isbetween(data.time,intervals.end(tr),intervals.start(tr+1)),:);
+
+                end
+
+                % 3) Each heart rate zone (interval)
+                for hrzone = 1 : length(intervals.start)
+                    hrzonepolar = polar(isbetween(polar.time,intervals.start(hrzone),intervals.end(hrzone)),:);
+                    hrzonedata = data(isbetween(data.time,intervals.start(hrzone),intervals.end(hrzone)),:);
+
+                end
+
+                % 4) All the transitions together
+                %TODO
+
+
+
+
+
 
             end
         end
@@ -188,17 +226,13 @@ end
 % - Cross-correlation
 % - R^2
 
-Headers = {'idUser','idSession','Fitbit','Apple','Withings','Garmin'};
-% Create empty tables to store metrics
-DELAY = cell2table(cell(0,length(Headers)),VariableNames = Headers);
-CROSSCORR = cell2table(cell(0,length(Headers)),VariableNames = Headers);
-R2 = cell2table(cell(0,length(Headers)),VariableNames = Headers); % already defined as COD(?)
-
-%TODO: Excluding the first part?
-
-
+%R2: already defined as COD(?)
 
 for idx_user = 1:size(users_DirsNames,2)
+
+    DELAY(idx_user,1) = {str2num(users_DirsNames(idx_user))};
+    XCORR(idx_user,1) = {str2num(users_DirsNames(idx_user))};
+
     userPath = fullfile(dataPath,users_DirsNames(idx_user));
     user_fd = dir(userPath);
     user_Flags = [user_fd.isdir];
@@ -220,22 +254,41 @@ for idx_user = 1:size(users_DirsNames,2)
         csv_names = {csvs(3:end).name};
         csv_names = string(csv_names);
 
+        tf_intervals = startsWith(csv_names, 'intervals');
+        intervals = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_intervals)),"VariableNamingRule",'preserve');
+        % shift to seconds without milliseconds (start)
+        intervals.start = dateshift(intervals.start, 'start', 'second');
+        intervals.end = dateshift(intervals.end, 'start', 'second');
+
         tf_polar = startsWith(csv_names,'polar'); %% take polar file name
         polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)),"VariableNamingRule",'preserve');
         polar = MStoS(polar);
-        polar = retimeHR(polar,5); %TODO
+        polar = retimeHR(polar,5);
 
         for i = 1:length(devices)
             tf = startsWith(csv_names,devices{i},'IgnoreCase',true); %% take file name containing devices data ignoring case sensitive
             if(ismember(1,tf) == 1)
                 data = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf)),"VariableNamingRule",'preserve');
+                data = retimeHR(data,5,polar.time(1),polar.time(end));
 
-                data = retimeHR(data,5); %TODO
+                % get the entire signal (from the start of the first interval to
+                % the end of the session or last interval. Transitions are
+                % included)
+                allpolar = polar(isbetween(polar.time,intervals.start(1),intervals.end(end)),:);
+                alldata = data(isbetween(data.time,intervals.start(1),intervals.end(end)),:);
+
+                DELAY(idx_user,1+i) = {timeDelay(allpolar,alldata)};
+                XCORR(idx_user,1+i) = {xcorr(allpolar.rate,alldata.rate)};
 
             end
         end
     end
 end
+
+%Headers = {'idUser','Fitbit','Apple','Withings','Garmin'};
+%DELAY = cell2table(DELAY,'VariableNames',Headers);
+%XCORR = cell2table(XCORR,'VariableNames',Headers);
+
 
 %% B) Session analysis (Metrics calculated on the entire session)
 % - Mean
@@ -243,16 +296,13 @@ end
 % - Median
 % - 25/75 boxplot
 
-Headers = {'idUser','idSession','Polar','Fitbit','Apple','Withings','Garmin'};
-% Create empty tables to store metrics
-SessionMean = cell2table(cell(0,length(Headers)),VariableNames = Headers);
-SessionMedian = cell2table(cell(0,length(Headers)),VariableNames = Headers);
-SessionSD = cell2table(cell(0,length(Headers)),VariableNames = Headers);
-Session25p = cell2table(cell(0,length(Headers)),VariableNames = Headers);
-Session75p = cell2table(cell(0,length(Headers)),VariableNames = Headers);
-
-
 for idx_user = 1:size(users_DirsNames,2)
+    SessionMEAN(idx_user,1)=str2num(users_DirsNames(idx_user));
+    SessionMEDIAN(idx_user,1)=str2num(users_DirsNames(idx_user));
+    SessionSD(idx_user,1)=str2num(users_DirsNames(idx_user));
+    Session25P(idx_user,1)=str2num(users_DirsNames(idx_user));
+    Session75P(idx_user,1)=str2num(users_DirsNames(idx_user));
+
     userPath = fullfile(dataPath,users_DirsNames(idx_user));
     user_fd = dir(userPath);
     user_Flags = [user_fd.isdir];
@@ -274,58 +324,55 @@ for idx_user = 1:size(users_DirsNames,2)
         csv_names = {csvs(3:end).name};
         csv_names = string(csv_names);
 
-        rowMean = cell(1,length(Headers));
-        rowMean(:) = {NaN(1,1)};
-        rowMedian = cell(1,length(Headers));
-        rowMedian(:) = {NaN(1,1)};
-        rowSD = cell(1,length(Headers));
-        rowSD(:) = {NaN(1,1)};
-        row25p = cell(1,length(Headers));
-        row25p(:) = {NaN(1,1)};
-        row75p = cell(1,length(Headers));
-        row75p(:) = {NaN(1,1)};
-
         tf_session = startsWith(csv_names, 'session');
         session = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_session)),"VariableNamingRule",'preserve');
+        SessionMEAN(idx_user,2)=session.id;
+        SessionMEDIAN(idx_user,2)=session.id;
+        SessionSD(idx_user,2)=session.id;
+        Session25P(idx_user,2)=session.id;
+        Session75P(idx_user,2)=session.id;
 
-        rowMean{1} = session.iduser;
-        rowMean{2} = session.id;
-        rowMedian{1} = session.iduser;
-        rowMedian{2} = session.id;
-        rowSD{1} = session.iduser;
-        rowSD{2} = session.id;
-        row25p{1} = session.iduser;
-        row25p{2} = session.id;
-        row75p{1} = session.iduser;
-        row75p{2} = session.id;
+
+        tf_intervals = startsWith(csv_names, 'intervals');
+        intervals = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_intervals)),"VariableNamingRule",'preserve');
+        % shift to seconds without milliseconds (start)
+        intervals.start = dateshift(intervals.start, 'start', 'second');
+        intervals.end = dateshift(intervals.end, 'start', 'second');
 
         tf_polar = startsWith(csv_names,'polar'); %% take polar file name
         polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)),"VariableNamingRule",'preserve');
         polar = MStoS(polar);
+        polar = retimeHR(polar,5);
+        allpolar = polar(isbetween(polar.time,intervals.start(1),intervals.end(end)),:);
 
-        rowMean{3} = nanmean(polar.rate);
-        rowMedian{3} = nanmedian(polar.rate);
-        rowSD{3} = nanstd(polar.rate);
-        row25p{3} = prctile(polar.rate,25);
-        row75p{3} = prctile(polar.rate,75);
+        SessionMEAN(idx_user,3) = nanmean(allpolar.rate);
+        SessionMEDIAN(idx_user,3) = nanmedian(allpolar.rate);
+        SessionSD(idx_user,3) = nanstd(allpolar.rate);
+        Session25P(idx_user,3) = prctile(allpolar.rate,25);
+        Session75P(idx_user,3) = prctile(allpolar.rate,75);
 
         for i = 1:length(devices)
             tf = startsWith(csv_names,devices{i},'IgnoreCase',true); %% take file name containing devices data ignoring case sensitive
             if(ismember(1,tf) == 1)
                 data = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf)),"VariableNamingRule",'preserve');
+                data = retimeHR(data,5,polar.time(1),polar.time(end));
 
-                rowMean{3+i} = nanmean(data.rate);
-                rowMedian{3+i} = nanmedian(data.rate);
-                rowSD{3+i} = nanstd(data.rate);
-                row25p{3+i} = prctile(data.rate,25);
-                row75p{3+i} = prctile(data.rate,75);
+                alldata = data(isbetween(data.time,intervals.start(1),intervals.end(end)),:);
+
+                SessionMEAN(idx_user,3+i) = nanmean(alldata.rate);
+                SessionMEDIAN(idx_user,3+i) = nanmedian(alldata.rate);
+                SessionSD(idx_user,3+i) = nanstd(alldata.rate);
+                Session25P(idx_user,3+i) = prctile(alldata.rate,25);
+                Session75P(idx_user,3+i) = prctile(alldata.rate,75);
             end
         end
-        SessionMean = [SessionMean;rowMean];
-        SessionMedian = [SessionMedian;rowMedian];
-        SessionSD = [SessionSD;rowSD];
-        Session25p = [Session25p;row25p];
-        Session75p = [Session75p;row75p];
     end
 end
+
+%Headers = {'idUser',idSession'','Fitbit','Apple','Withings','Garmin'};
+%SessionMEAN = cell2table(SessionMEAN,'VariableNames',Headers);
+%SessionMEDIAN = cell2table(SessionMEDIAN,'VariableNames',Headers);
+%SessionSD = cell2table(SessionSD,'VariableNames',Headers);
+%Session25P = cell2table(Session25P,'VariableNames',Headers);
+%Session75P = cell2table(Session75P,'VariableNames',Headers);
 
