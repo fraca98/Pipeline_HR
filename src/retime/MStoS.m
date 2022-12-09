@@ -38,7 +38,7 @@ function dataRetimed = MStoS(data)
     %Create the new timetable
     newTime = data.time(1):seconds(1):data.time(end); %step as 1 second
     dataRetimed = timetable(nan(length(newTime),1),nan(length(newTime),1),'VariableNames', {'rate','k'}, 'RowTimes', newTime);
-    dataRetimed.Properties.DimensionNames{1} = 'time'; %rename column 'Time' to 'time
+    dataRetimed.Properties.DimensionNames{1} = 'time'; %rename column 'Time' to 'time'
     
     %Remove nan entries from data
     data = data(~isnan(data.rate),:);

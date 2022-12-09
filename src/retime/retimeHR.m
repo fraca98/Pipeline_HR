@@ -44,7 +44,6 @@ function dataRetimed = retimeHR(data, timestep,startdate,enddate)
     %Create the new timetable
     if (nargin == 2)
         newTime = data.time(1):seconds(timestep):data.time(end);
-        %TODO? check if date.time(end) contained else add newTime = [newTime, data.time(end)]
     elseif (nargin == 4)
         newTime = startdate:seconds(timestep):enddate;
     else
