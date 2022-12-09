@@ -174,6 +174,11 @@ for hrzone = 1 : length(intervals.start)
     MAE.zone.(sprintf('z%d',hrzone)) = standardizeMissing(MAE.zone.(sprintf('z%d',hrzone)),0);
 end
 
+RMSE.alltr = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
+COD.alltr = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
+MARD.alltr = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
+MAE.alltr = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
+
 
 for idx_user = 1:size(users_DirsNames,2)
 
@@ -197,6 +202,12 @@ for idx_user = 1:size(users_DirsNames,2)
         MAE.zone.(sprintf('z%d',hrzone)) {idx_user,1} = users_DirsNames(idx_user);
     end
 
+    RMSE.alltr {idx_user,1} = users_DirsNames(idx_user);
+    COD.alltr {idx_user,1} = users_DirsNames(idx_user);
+    MARD.alltr {idx_user,1} = users_DirsNames(idx_user);
+    MAE.alltr {idx_user,1} = users_DirsNames(idx_user);
+
+    % access the sessions of each user
     userPath = fullfile(dataPath,users_DirsNames(idx_user));
     user_fd = dir(userPath);
     user_Flags = [user_fd.isdir];
@@ -273,12 +284,13 @@ for idx_user = 1:size(users_DirsNames,2)
                 end
 
                 % 4) All the transitions together
-                %TODO
-
-
-
-
-
+                alltrpolar = [];
+                alltrdata = [];
+                for tr = 1 : length(intervals.start)-1
+                    alltrpolar = [alltrpolar;polar(isbetween(polar.time,intervals.end(tr),intervals.start(tr+1)),:)];
+                    alltrdata = [alltrdata;data(isbetween(data.time,intervals.end(tr),intervals.start(tr+1)),:)];
+                end
+                %TODO: ask why same timestep
 
             end
         end
