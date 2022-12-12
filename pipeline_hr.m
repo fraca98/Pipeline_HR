@@ -179,6 +179,10 @@ COD.alltr = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','
 MARD.alltr = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
 MAE.alltr = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
 
+RMSE.alltr = standardizeMissing(RMSE.alltr,0);
+COD.alltr = standardizeMissing(COD.alltr,0);
+MARD.alltr = standardizeMissing(MARD.alltr,0);
+MAE.alltr = standardizeMissing(MAE.alltr,0);
 
 for idx_user = 1:size(users_DirsNames,2)
 
@@ -290,8 +294,10 @@ for idx_user = 1:size(users_DirsNames,2)
                     alltrpolar = [alltrpolar;polar(isbetween(polar.time,intervals.end(tr),intervals.start(tr+1)),:)];
                     alltrdata = [alltrdata;data(isbetween(data.time,intervals.end(tr),intervals.start(tr+1)),:)];
                 end
-                %TODO: ask why same timestep
-
+                RMSE.alltr {idx_user,i+1} = rmse(alltrpolar,alltrdata);
+                COD.alltr {idx_user,i+1} = cod(alltrpolar,alltrdata);
+                MARD.alltr {idx_user,i+1} = mard(alltrpolar,alltrdata);
+                MAE.alltr {idx_user,i+1} = mae(alltrpolar,alltrdata);
             end
         end
     end
