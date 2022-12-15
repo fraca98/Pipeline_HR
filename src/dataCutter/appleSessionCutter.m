@@ -2,6 +2,8 @@ function appleSessionCutter()
 % This function:
 % - creates and saves a file .csv containing the values (time,rate) of
 %   AppleWatch related to that specific session
+% - manages if the datetimes in the original .csv file are defined as UNIX
+%   timestamp or datetime
 
 % dialog box to select the session file
 [fileSession,pathSession] = uigetfile({'session*.csv','Session'},'Select you session');
@@ -20,12 +22,30 @@ if isequal(fileApple,0)
 end
 
 opts = detectImportOptions(fullfile(pathApple,fileApple));
-opts = setvaropts(opts,{'time','created_at','updated_at'},'InputFormat','dd/MM/uuuu HH:mm:ss');
 
-apple = readtable(fullfile(pathApple,fileApple),opts);
-apple = apple(:,{'time','rate'});
-apple = table2timetable(apple);
-apple.time.Format = 'yyyy-MM-dd HH:mm:ss'; %convert datetime format
+% check the variable type of the column "time"
+idx_time = ismember(opts.VariableNames,'time');
+type_time = char(opts.VariableTypes(idx_time)); %as string
+
+if(strcmp(type_time,'double')) %timestamp
+    apple = readtable(fullfile(pathApple,fileApple));
+    apple = apple(:,{'time','rate','time_zone'});
+    %Convert to datetime from UNIX timestamp
+    apple.time = datetime(apple.time,'ConvertFrom','posixtime', 'Format', 'yyyy-MM-dd HH:mm:ss');
+    apple.time = apple.time + hours(apple.time_zone); %adjust datetime with timezone
+    apple = apple(:,{'time','rate','time_zone'});
+    apple = table2timetable(apple);
+
+elseif(strcmp(type_time,'datetime')) %datetime case
+    opts = setvaropts(opts,{'time','created_at','updated_at'},'InputFormat','dd/MM/uuuu HH:mm:ss');
+    apple = readtable(fullfile(pathApple,fileApple),opts);
+    apple = apple(:,{'time','rate'});
+    apple = table2timetable(apple);
+    apple.time.Format = 'yyyy-MM-dd HH:mm:ss'; %convert datetime format
+
+else
+    error('appleSessionCutter: time format not recognized')
+end
 
 idx_bet = isbetween(apple.time,session.start, session.end); %check where values of time in Apple are between & equal start/end of session
 valid = sum(idx_bet==1); %find number of valid entries (marked as 1 if between)
@@ -34,7 +54,7 @@ if(valid==0)
 end
 
 apple = apple(idx_bet,:);
-nameCsv = strcat('applewatch_',num2str(session.iduser),'_',num2str(session.id),'.csv'); %create name of the new .csv file
+nameCsv = sprintf('applewatch_%d_%d.csv',session.iduser,session.id); %create name of the new .csv file
 writetimetable(apple,fullfile(pathSession,nameCsv));
 display(strcat('Exported file:',nameCsv));
 end
