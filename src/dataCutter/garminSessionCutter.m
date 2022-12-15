@@ -5,7 +5,7 @@ function garminSessionCutter()
 % - manages if the input Garmin file has .csv or .json extension
 
 % dialog box to select the session file
-[fileSession,pathSession] = uigetfile('session*.csv','Select you session');
+[fileSession,pathSession] = uigetfile({'session*.csv','Session'},'Select you session');
 if isequal(fileSession,0)
     error('garminSessionCutter: select a valid session file .csv')
 end
@@ -45,14 +45,14 @@ elseif(strcmp(ext,'.csv'))
 else
     error('garminSessionCutter: no Garmin extension file recognized for the session selected')
 end
-
+garmin = garmin(:,{'rate'});
 idx_bet = isbetween(garmin.time,session.start, session.end); %check where values of time in Garmin are between & equal start/end of session
 valid = sum(idx_bet==1); %find number of valid entries (marked as 1 if between)
 if(valid==0)
     error('garminSessionCutter: no Garmin values for the session selected')
 end
 garmin = garmin(idx_bet,:);
-writetimetable(garmin,fullfile(pathSession,sprintf("garmin_%d_%d",session.iduser,session.id)));
-display(strcat('Exported file:',sprintf("garmin_%d_%d",session.iduser,session.id)));
+writetimetable(garmin,fullfile(pathSession,sprintf("garmin_%d_%d.csv",session.iduser,session.id)));
+display(strcat('Exported file:',sprintf("garmin_%d_%d.csv",session.iduser,session.id)));
 
 end
