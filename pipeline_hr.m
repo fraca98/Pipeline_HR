@@ -5,15 +5,15 @@ clc
 addpath(genpath("src"));
 %%
 % devices names
-devices = {'Fitbit','Apple','Withings','Garmin'};
+devices = {'Apple','Fitbit','Garmin','Withings'};
 
 % color to plot devices
-colors = {'blue','black','green','magenta'};
+colors = {'black','blue','magenta','green'};
 
 %% Set the timestep to retime heart rate data
-timestemp = 5;
+timestep = 5;
 
-%% Plot sessions adjusting polar data to Seconds (No more considering Ms)
+%% Plot sessions
 filePath = matlab.desktop.editor.getActiveFilename; % Get the filepath of the script
 projectPath = fileparts(filePath); % Take directory of folder containing filePath
 dataPath = fullfile(projectPath,'data'); %path of folder data
@@ -115,14 +115,17 @@ for idx_user = 1:size(users_DirsNames,2)
         tf_polar = startsWith(csv_names,'polar'); %% take polar file name
         polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)),"VariableNamingRule",'preserve');
         polar = MStoS(polar);
-        polar(isnan(polar.rate),:)=[]; %remove NaN to have a continue plot
-        plot(polar.time, polar.rate, Color='red', DisplayName='Polar')
+        polar = retimeHR(polar,timestep);
+        %polar(isnan(polar.rate),:)=[]; %remove NaN to have a continue plot
+        plot(polar.time, polar.rate,'.',Color='red', DisplayName='Polar')
 
         for i = 1:length(devices)
             tf = startsWith(csv_names,devices{i},'IgnoreCase',true); %% take file name containing devices data ignoring case sensitive
             if(ismember(1,tf) == 1)
                 data = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf)),'VariableNamingRule','preserve');
-                plot(data.time, data.rate, Color=colors{i}, DisplayName=devices{i})
+                %data = retime(data,polar.time); %retime to have same grid of Polar to have plot NAN
+                data = retimeHR(data,timestep,polar.time(1),polar.time(end));
+                plot(data.time, data.rate,'.', Color=colors{i}, DisplayName=devices{i})
             end
             ylim([35 200]);
             set(gca,'FontSize',13)
@@ -131,58 +134,77 @@ for idx_user = 1:size(users_DirsNames,2)
     end
 end
 
-%% A) Signal analysis
-%% A.1) Metrics for entire session, all transitions together, all heart rate zones, all transitions one by one
+%% A) Error metrics
 % - RMSE
 % - COD
 % - MARD
-% ? MAD : one for each
 % - MAE
+% - DELAY
+% - XCORR
+
+strDevices = string(['IDUser',devices]);
 
 % creation of tables inside strcutures of errorMetrics
-RMSE.all = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
-COD.all = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
-MARD.all = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
-MAE.all = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
+RMSE.all = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+COD.all = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+MARD.all = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+MAE.all = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+DELAY.all = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+XCORR.all = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','cell','cell','cell','cell'},'VariableNames',strDevices);
 
 RMSE.all = standardizeMissing(RMSE.all,0); %to set table to NaN
 COD.all = standardizeMissing(COD.all,0);
 MARD.all = standardizeMissing(MARD.all,0);
 MAE.all = standardizeMissing(MAE.all,0);
+DELAY.all = standardizeMissing(DELAY.all,0);
+XCORR.all = standardizeMissing(XCORR.all,0);
+
 
 for tr = 1 : length(intervals.start)-1
-    RMSE.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
-    COD.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
-    MARD.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
-    MAE.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
+    RMSE.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),length(strDevices)],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+    COD.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),length(strDevices)],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+    MARD.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),length(strDevices)],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+    MAE.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),length(strDevices)],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+    DELAY.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),length(strDevices)],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+    XCORR.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),length(strDevices)],'VariableTypes',{'double','cell','cell','cell','cell'},'VariableNames',strDevices);
 
     RMSE.transition.(sprintf('tr%d%d',tr-1,tr)) = standardizeMissing(RMSE.transition.(sprintf('tr%d%d',tr-1,tr)),0);
     COD.transition.(sprintf('tr%d%d',tr-1,tr)) = standardizeMissing(COD.transition.(sprintf('tr%d%d',tr-1,tr)),0);
     MARD.transition.(sprintf('tr%d%d',tr-1,tr)) = standardizeMissing(MARD.transition.(sprintf('tr%d%d',tr-1,tr)),0);
     MAE.transition.(sprintf('tr%d%d',tr-1,tr)) = standardizeMissing(MAE.transition.(sprintf('tr%d%d',tr-1,tr)),0);
+    DELAY.transition.(sprintf('tr%d%d',tr-1,tr)) = standardizeMissing(DELAY.transition.(sprintf('tr%d%d',tr-1,tr)),0);
+    XCORR.transition.(sprintf('tr%d%d',tr-1,tr)) = standardizeMissing(XCORR.transition.(sprintf('tr%d%d',tr-1,tr)),0);
 end
 
 for hrzone = 1 : length(intervals.start)
-    RMSE.zone.(sprintf('z%d',hrzone)) = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
-    COD.zone.(sprintf('z%d',hrzone)) = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
-    MARD.zone.(sprintf('z%d',hrzone)) = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
-    MAE.zone.(sprintf('z%d',hrzone)) = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
+    RMSE.zone.(sprintf('z%d',hrzone-1)) = table('Size',[length(users_DirsNames),length(strDevices)],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+    COD.zone.(sprintf('z%d',hrzone-1)) = table('Size',[length(users_DirsNames),length(strDevices)],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+    MARD.zone.(sprintf('z%d',hrzone-1)) = table('Size',[length(users_DirsNames),length(strDevices)],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+    MAE.zone.(sprintf('z%d',hrzone-1)) = table('Size',[length(users_DirsNames),length(strDevices)],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+    DELAY.zone.(sprintf('z%d',hrzone-1)) = table('Size',[length(users_DirsNames),length(strDevices)],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+    XCORR.zone.(sprintf('z%d',hrzone-1)) = table('Size',[length(users_DirsNames),length(strDevices)],'VariableTypes',{'double','cell','cell','cell','cell'},'VariableNames',strDevices);
 
-    RMSE.zone.(sprintf('z%d',hrzone)) = standardizeMissing(RMSE.zone.(sprintf('z%d',hrzone)),0);
-    COD.zone.(sprintf('z%d',hrzone)) = standardizeMissing(COD.zone.(sprintf('z%d',hrzone)),0);
-    MARD.zone.(sprintf('z%d',hrzone)) = standardizeMissing(MARD.zone.(sprintf('z%d',hrzone)),0);
-    MAE.zone.(sprintf('z%d',hrzone)) = standardizeMissing(MAE.zone.(sprintf('z%d',hrzone)),0);
+    RMSE.zone.(sprintf('z%d',hrzone-1)) = standardizeMissing(RMSE.zone.(sprintf('z%d',hrzone-1)),0);
+    COD.zone.(sprintf('z%d',hrzone-1)) = standardizeMissing(COD.zone.(sprintf('z%d',hrzone-1)),0);
+    MARD.zone.(sprintf('z%d',hrzone-1)) = standardizeMissing(MARD.zone.(sprintf('z%d',hrzone-1)),0);
+    MAE.zone.(sprintf('z%d',hrzone-1)) = standardizeMissing(MAE.zone.(sprintf('z%d',hrzone-1)),0);
+    DELAY.zone.(sprintf('z%d',hrzone-1)) = standardizeMissing(DELAY.zone.(sprintf('z%d',hrzone-1)),0);
+    XCORR.zone.(sprintf('z%d',hrzone-1)) = standardizeMissing(XCORR.zone.(sprintf('z%d',hrzone-1)),0);
 end
 
-RMSE.alltr = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
-COD.alltr = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
-MARD.alltr = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
-MAE.alltr = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
+RMSE.alltr = table('Size',[length(users_DirsNames),length(strDevices)],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+COD.alltr = table('Size',[length(users_DirsNames),length(strDevices)],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+MARD.alltr = table('Size',[length(users_DirsNames),length(strDevices)],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+MAE.alltr = table('Size',[length(users_DirsNames),length(strDevices)],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+DELAY.alltr = table('Size',[length(users_DirsNames),length(strDevices)],'VariableTypes',{'double','double','double','double','double'},'VariableNames',strDevices);
+XCORR.alltr = table('Size',[length(users_DirsNames),length(strDevices)],'VariableTypes',{'double','cell','cell','cell','cell'},'VariableNames',strDevices);
 
 RMSE.alltr = standardizeMissing(RMSE.alltr,0);
 COD.alltr = standardizeMissing(COD.alltr,0);
 MARD.alltr = standardizeMissing(MARD.alltr,0);
 MAE.alltr = standardizeMissing(MAE.alltr,0);
+DELAY.alltr = standardizeMissing(DELAY.alltr,0);
+XCORR.alltr = standardizeMissing(XCORR.alltr,0);
 
 for idx_user = 1:size(users_DirsNames,2)
 
@@ -191,25 +213,33 @@ for idx_user = 1:size(users_DirsNames,2)
     COD.all {idx_user,1} = users_DirsNames(idx_user);
     MARD.all {idx_user,1} = users_DirsNames(idx_user);
     MAE.all {idx_user,1} = users_DirsNames(idx_user);
+    DELAY.all {idx_user,1} = users_DirsNames(idx_user);
+    XCORR.all {idx_user,1} = users_DirsNames(idx_user);
 
     for tr = 1 : length(intervals.start)-1
         RMSE.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,1} = users_DirsNames(idx_user);
         COD.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,1} = users_DirsNames(idx_user);
         MARD.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,1} = users_DirsNames(idx_user);
         MAE.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,1} = users_DirsNames(idx_user);
+        DELAY.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,1} = users_DirsNames(idx_user);
+        XCORR.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,1} = users_DirsNames(idx_user);
     end
 
     for hrzone = 1 : length(intervals.start)
-        RMSE.zone.(sprintf('z%d',hrzone)) {idx_user,1} = users_DirsNames(idx_user);
-        COD.zone.(sprintf('z%d',hrzone)) {idx_user,1} = users_DirsNames(idx_user);
-        MARD.zone.(sprintf('z%d',hrzone)) {idx_user,1} = users_DirsNames(idx_user);
-        MAE.zone.(sprintf('z%d',hrzone)) {idx_user,1} = users_DirsNames(idx_user);
+        RMSE.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);
+        COD.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);
+        MARD.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);
+        MAE.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);
+        DELAY.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);
+        XCORR.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);
     end
 
     RMSE.alltr {idx_user,1} = users_DirsNames(idx_user);
     COD.alltr {idx_user,1} = users_DirsNames(idx_user);
     MARD.alltr {idx_user,1} = users_DirsNames(idx_user);
     MAE.alltr {idx_user,1} = users_DirsNames(idx_user);
+    DELAY.alltr {idx_user,1} = users_DirsNames(idx_user);
+    XCORR.alltr {idx_user,1} = users_DirsNames(idx_user);
 
     % access the sessions of each user
     userPath = fullfile(dataPath,users_DirsNames(idx_user));
@@ -235,20 +265,20 @@ for idx_user = 1:size(users_DirsNames,2)
 
         tf_intervals = startsWith(csv_names, 'intervals');
         intervals = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_intervals)),"VariableNamingRule",'preserve');
-        % shift to seconds without milliseconds (start)
+        % shift to seconds without milliseconds (start --> at the start)
         intervals.start = dateshift(intervals.start, 'start', 'second');
         intervals.end = dateshift(intervals.end, 'start', 'second');
 
         tf_polar = startsWith(csv_names,'polar'); %% take polar file name
         polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)),"VariableNamingRule",'preserve');
-        polar = MStoS(polar);
-        polar = retimeHR(polar,timestemp);
+        polar = MStoS(polar); %to S from Ms
+        polar = retimeHR(polar,timestep);
 
         for i = 1:length(devices)
             tf = startsWith(csv_names,devices{i},'IgnoreCase',true); %% take file name containing devices data ignoring case sensitive
             if(ismember(1,tf) == 1)
                 data = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf)),"VariableNamingRule",'preserve');
-                data = retimeHR(data,timestemp,polar.time(1),polar.time(end));
+                data = retimeHR(data,timestep,polar.time(1),polar.time(end));
 
                 % Now calculating the errorMetrics
 
@@ -262,16 +292,20 @@ for idx_user = 1:size(users_DirsNames,2)
                 COD.all {idx_user,i+1} = cod(allpolar,alldata);
                 MARD.all {idx_user,i+1} = mard(allpolar,alldata);
                 MAE.all {idx_user,i+1} = mae(allpolar,alldata);
+                DELAY.all {idx_user,i+1} = timeDelay(allpolar,alldata);
+                XCORR.all {idx_user,i+1} = {xcorrN(allpolar,alldata)};
 
                 % 2) Each transition
                 for tr = 1 : length(intervals.start)-1
                     trpolar = polar(isbetween(polar.time,intervals.end(tr),intervals.start(tr+1)),:);
                     trdata = data(isbetween(data.time,intervals.end(tr),intervals.start(tr+1)),:);
 
-                    RMSE.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,i+1} = rmse(allpolar,alldata);
-                    COD.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,i+1} = cod(allpolar,alldata);
-                    MARD.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,i+1} = mard(allpolar,alldata);
-                    MAE.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,i+1} = mae(allpolar,alldata);
+                    RMSE.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,i+1} = rmse(trpolar,trdata);
+                    COD.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,i+1} = cod(trpolar,trdata);
+                    MARD.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,i+1} = mard(trpolar,trdata);
+                    MAE.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,i+1} = mae(trpolar,trdata);
+                    DELAY.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,i+1} = timeDelay(trpolar,trdata);
+                    XCORR.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,i+1} = {xcorrN(trpolar,trdata)};
 
                 end
 
@@ -280,10 +314,12 @@ for idx_user = 1:size(users_DirsNames,2)
                     hrzonepolar = polar(isbetween(polar.time,intervals.start(hrzone),intervals.end(hrzone)),:);
                     hrzonedata = data(isbetween(data.time,intervals.start(hrzone),intervals.end(hrzone)),:);
 
-                    RMSE.zone.(sprintf('z%d',hrzone)) {idx_user,i+1} = rmse(allpolar,alldata);
-                    COD.zone.(sprintf('z%d',hrzone)) {idx_user,i+1} = cod(allpolar,alldata);
-                    MARD.zone.(sprintf('z%d',hrzone)) {idx_user,i+1} = mard(allpolar,alldata);
-                    MAE.zone.(sprintf('z%d',hrzone)) {idx_user,i+1} = mae(allpolar,alldata);
+                    RMSE.zone.(sprintf('z%d',hrzone-1)) {idx_user,i+1} = rmse(hrzonepolar,hrzonedata);
+                    COD.zone.(sprintf('z%d',hrzone-1)) {idx_user,i+1} = cod(hrzonepolar,hrzonedata);
+                    MARD.zone.(sprintf('z%d',hrzone-1)) {idx_user,i+1} = mard(hrzonepolar,hrzonedata);
+                    MAE.zone.(sprintf('z%d',hrzone-1)) {idx_user,i+1} = mae(hrzonepolar,hrzonedata);
+                    DELAY.zone.(sprintf('z%d',hrzone-1)) {idx_user,i+1} = timeDelay(hrzonepolar,hrzonedata);
+                    XCORR.zone.(sprintf('z%d',hrzone-1)) {idx_user,i+1} = {xcorrN(hrzonepolar,hrzonedata)};
 
                 end
 
@@ -298,105 +334,107 @@ for idx_user = 1:size(users_DirsNames,2)
                 COD.alltr {idx_user,i+1} = cod(alltrpolar,alltrdata);
                 MARD.alltr {idx_user,i+1} = mard(alltrpolar,alltrdata);
                 MAE.alltr {idx_user,i+1} = mae(alltrpolar,alltrdata);
+                DELAY.alltr {idx_user,i+1} = timeDelay(alltrpolar,alltrdata);
+                XCORR.alltr {idx_user,i+1} = {xcorrN(alltrpolar,alltrdata)};
             end
         end
     end
 end
 
-%% A.2) Calculation on the entire signal for
-% - Delay
-% - Cross-correlation
-% - R^2: already defined as COD(?)
-
-DELAY = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','double','double','double','double'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
-XCORR = table('Size',[length(users_DirsNames),5],'VariableTypes',{'double','cell','cell','cell','cell'},'VariableNames',["idUser","Fitbit","Apple","Withings","Garmin"]);
-
-DELAY = standardizeMissing(DELAY,0);
-XCORR = standardizeMissing(XCORR,0);
-
-
-for idx_user = 1:size(users_DirsNames,2)
-
-    DELAY{idx_user,1} = users_DirsNames(idx_user);
-    XCORR{idx_user,1} = users_DirsNames(idx_user);
-
-    userPath = fullfile(dataPath,users_DirsNames(idx_user));
-    user_fd = dir(userPath);
-    user_Flags = [user_fd.isdir];
-    sessions_Dirs = user_fd(user_Flags);
-    sessions_Dirs = sessions_Dirs(3:end); % keep only valid folders
-
-    % sort sessions alphabetically
-    [~,ind] = sort(cellfun(@(x) str2num(char(regexp(x,'\d*','match'))),{sessions_Dirs.name}));
-    sessions_Dirs = sessions_Dirs(ind);
-    sessions_DirsNames = {sessions_Dirs.name};
-
-    sessions_DirsNames = string(sessions_DirsNames);
-    sessions_DirsNames(startsWith(sessions_DirsNames,'Questionnaires')) = []; %remove the Questionnaires folder when i iterate sessions
-
-    % loop for sessions for each user (iterate for session)
-    for idx_session = 1: size(sessions_DirsNames,2)
-        csvs = dir(fullfile(userPath,sessions_DirsNames(idx_session)));
-        % get only the folder names into a cell array
-        csv_names = {csvs(3:end).name};
-        csv_names = string(csv_names);
-
-        tf_intervals = startsWith(csv_names, 'intervals');
-        intervals = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_intervals)),"VariableNamingRule",'preserve');
-        % shift to seconds without milliseconds (start)
-        intervals.start = dateshift(intervals.start, 'start', 'second');
-        intervals.end = dateshift(intervals.end, 'start', 'second');
-
-        tf_polar = startsWith(csv_names,'polar'); %% take polar file name
-        polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)),"VariableNamingRule",'preserve');
-        polar = MStoS(polar);
-        polar = retimeHR(polar,timestemp);
-
-        for i = 1:length(devices)
-            tf = startsWith(csv_names,devices{i},'IgnoreCase',true); %% take file name containing devices data ignoring case sensitive
-            if(ismember(1,tf) == 1)
-                data = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf)),"VariableNamingRule",'preserve');
-                data = retimeHR(data,timestemp,polar.time(1),polar.time(end));
-
-                % get the entire signal (from the start of the first interval to
-                % the end of the session or last interval. Transitions are
-                % included)
-                allpolar = polar(isbetween(polar.time,intervals.start(1),intervals.end(end)),:);
-                alldata = data(isbetween(data.time,intervals.start(1),intervals.end(end)),:);
-
-                DELAY{idx_user,1+i} = timeDelay(allpolar,alldata);
-                XCORR{idx_user,1+i} = {xcorr(allpolar.rate,alldata.rate)};
-
-            end
-        end
-    end
-end
-
-%% B) Session analysis (Metrics calculated on the entire session)
+%% B) Statistics
 % - Mean
 % - SD
 % - Median
 % - 25/75 boxplot
 
-SessionMEAN = table('Size',[length(users_DirsNames),7],'VariableTypes',{'double','double','double','double','double','double','double'},'VariableNames',["idUser","idSession","Polar","Fitbit","Apple","Withings","Garmin"]);
-SessionMEDIAN = table('Size',[length(users_DirsNames),7],'VariableTypes',{'double','double','double','double','double','double','double'},'VariableNames',["idUser","idSession","Polar","Fitbit","Apple","Withings","Garmin"]);
-SessionSD = table('Size',[length(users_DirsNames),7],'VariableTypes',{'double','double','double','double','double','double','double'},'VariableNames',["idUser","idSession","Polar","Fitbit","Apple","Withings","Garmin"]);
-Session25P = table('Size',[length(users_DirsNames),7],'VariableTypes',{'double','double','double','double','double','double','double'},'VariableNames',["idUser","idSession","Polar","Fitbit","Apple","Withings","Garmin"]);
-Session75P = table('Size',[length(users_DirsNames),7],'VariableTypes',{'double','double','double','double','double','double','double'},'VariableNames',["idUser","idSession","Polar","Fitbit","Apple","Withings","Garmin"]);
+% Sessione 1
 
-SessionMEAN = standardizeMissing(SessionMEAN,0);
-SessionMEDIAN = standardizeMissing(SessionMEDIAN,0);
-SessionSD = standardizeMissing(SessionSD,0);
-Session25P = standardizeMissing(Session25P,0);
-Session75P = standardizeMissing(Session75P,0);
+Sess1.MEAN.all = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double'},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+Sess1.MEDIAN.all = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double'},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+Sess1.SD.all = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double'},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+Sess1.p25.all = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double'},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+Sess1.p75.all = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+
+Sess1.MEAN.all = standardizeMissing(Sess1.MEAN.all,0);
+Sess1.MEDIAN.all = standardizeMissing(Sess1.MEDIAN.all,0);
+Sess1.SD.all = standardizeMissing(Sess1.SD.all,0);
+Sess1.p25.all = standardizeMissing(Sess1.p25.all,0);
+Sess1.p75.all = standardizeMissing(Sess1.p75.all,0);
+
+for tr = 1 : length(intervals.start)-1
+    Sess1.MEAN.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+    Sess1.MEDIAN.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+    Sess1.SD.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+    Sess1.p25.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+    Sess1.p75.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+
+
+    Sess1.MEAN.transition.(sprintf('tr%d%d',tr-1,tr)) = standardizeMissing(Sess1.MEAN.transition.(sprintf('tr%d%d',tr-1,tr)),0);
+    Sess1.MEDIAN.transition.(sprintf('tr%d%d',tr-1,tr)) = standardizeMissing(Sess1.MEDIAN.transition.(sprintf('tr%d%d',tr-1,tr)),0);
+    Sess1.SD.transition.(sprintf('tr%d%d',tr-1,tr)) = standardizeMissing(Sess1.SD.transition.(sprintf('tr%d%d',tr-1,tr)),0);
+    Sess1.p25.transition.(sprintf('tr%d%d',tr-1,tr)) = standardizeMissing(Sess1.p25.transition.(sprintf('tr%d%d',tr-1,tr)),0);
+    Sess1.p75.transition.(sprintf('tr%d%d',tr-1,tr)) = standardizeMissing(Sess1.p75.transition.(sprintf('tr%d%d',tr-1,tr)),0);
+end
+
+for hrzone = 1 : length(intervals.start)
+    Sess1.MEAN.zone.(sprintf('z%d',hrzone-1)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+    Sess1.MEDIAN.zone.(sprintf('z%d',hrzone-1)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+    Sess1.SD.zone.(sprintf('z%d',hrzone-1)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+    Sess1.p25.zone.(sprintf('z%d',hrzone-1)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+    Sess1.p75.zone.(sprintf('z%d',hrzone-1)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+
+    Sess1.MEAN.zone.(sprintf('z%d',hrzone-1)) = standardizeMissing(Sess1.MEAN.zone.(sprintf('z%d',hrzone-1)),0);
+    Sess1.MEDIAN.zone.(sprintf('z%d',hrzone-1)) = standardizeMissing(Sess1.MEDIAN.zone.(sprintf('z%d',hrzone-1)),0);
+    Sess1.SD.zone.(sprintf('z%d',hrzone-1)) = standardizeMissing(Sess1.SD.zone.(sprintf('z%d',hrzone-1)),0);
+    Sess1.p25.zone.(sprintf('z%d',hrzone-1)) = standardizeMissing(Sess1.p25.zone.(sprintf('z%d',hrzone-1)),0);
+    Sess1.p75.zone.(sprintf('z%d',hrzone-1)) = standardizeMissing(Sess1.p75.zone.(sprintf('z%d',hrzone-1)),0);
+end
+
+Sess1.MEAN.alltr = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+Sess1.MEDIAN.alltr = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+Sess1.SD.alltr = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+Sess1.p25.alltr = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+Sess1.p75.alltr = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+
+Sess1.MEAN.alltr = standardizeMissing(Sess1.MEAN.alltr,0);
+Sess1.MEDIAN.alltr = standardizeMissing(Sess1.MEDIAN.alltr,0);
+Sess1.SD.alltr = standardizeMissing(Sess1.SD.alltr,0);
+Sess1.p25.alltr = standardizeMissing(Sess1.p25.alltr,0);
+Sess1.p25.alltr = standardizeMissing(Sess1.p75.alltr,0);
+
 
 for idx_user = 1:size(users_DirsNames,2)
-    SessionMEAN{idx_user,1}=users_DirsNames(idx_user);
-    SessionMEDIAN{idx_user,1}=users_DirsNames(idx_user);
-    SessionSD{idx_user,1}=users_DirsNames(idx_user);
-    Session25P{idx_user,1}=users_DirsNames(idx_user);
-    Session75P{idx_user,1}=users_DirsNames(idx_user);
 
+    % assign the idUser in tables of structures of errorMetrics
+    Sess1.MEAN.all {idx_user,1} = users_DirsNames(idx_user);
+    Sess1.MEDIAN.all {idx_user,1} = users_DirsNames(idx_user);
+    Sess1.SD.all {idx_user,1} = users_DirsNames(idx_user);
+    Sess1.p25.all {idx_user,1} = users_DirsNames(idx_user);
+    Sess1.p75.all {idx_user,1} = users_DirsNames(idx_user);
+
+    for tr = 1 : length(intervals.start)-1
+        Sess1.MEAN.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,1} = users_DirsNames(idx_user);
+        Sess1.MEDIAN.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,1} = users_DirsNames(idx_user);
+        Sess1.SD.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,1} = users_DirsNames(idx_user);
+        Sess1.p25.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,1} = users_DirsNames(idx_user);
+        Sess1.p75.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,1} = users_DirsNames(idx_user);
+    end
+
+    for hrzone = 1 : length(intervals.start)
+        Sess1.MEAN.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);
+        Sess1.MEDIAN.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);
+        Sess1.SD.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);
+        Sess1.p25.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);
+        Sess1.p75.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);;
+    end
+
+    Sess1.MEAN.alltr {idx_user,1} = users_DirsNames(idx_user);
+    Sess1.MEDIAN.alltr {idx_user,1} = users_DirsNames(idx_user);
+    Sess1.SD.alltr {idx_user,1} = users_DirsNames(idx_user);
+    Sess1.p25.alltr {idx_user,1} = users_DirsNames(idx_user);
+    Sess1.p75.alltr {idx_user,1} = users_DirsNames(idx_user);
+
+    % access the sessions of each user
     userPath = fullfile(dataPath,users_DirsNames(idx_user));
     user_fd = dir(userPath);
     user_Flags = [user_fd.isdir];
@@ -411,54 +449,322 @@ for idx_user = 1:size(users_DirsNames,2)
     sessions_DirsNames = string(sessions_DirsNames);
     sessions_DirsNames(startsWith(sessions_DirsNames,'Questionnaires')) = []; %remove the Questionnaires folder when i iterate sessions
 
-    % Loop for sessions for each user (iterate for session)
-    for idx_session = 1: size(sessions_DirsNames,2)
-        csvs = dir(fullfile(userPath,sessions_DirsNames(idx_session)));
-        % Get only the folder names into a cell array
-        csv_names = {csvs(3:end).name};
-        csv_names = string(csv_names);
+    % first session of the user
+    idx_session = 1;
+    csvs = dir(fullfile(userPath,sessions_DirsNames(idx_session)));
+    % get only the folder names into a cell array
+    csv_names = {csvs(3:end).name};
+    csv_names = string(csv_names);
 
-        tf_session = startsWith(csv_names, 'session');
-        session = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_session)),"VariableNamingRule",'preserve');
-        SessionMEAN{idx_user,2}=session.id;
-        SessionMEDIAN{idx_user,2}=session.id;
-        SessionSD{idx_user,2}=session.id;
-        Session25P{idx_user,2}=session.id;
-        Session75P{idx_user,2}=session.id;
+    tf_intervals = startsWith(csv_names, 'intervals');
+    intervals = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_intervals)),"VariableNamingRule",'preserve');
+    % shift to seconds without milliseconds (start --> at the start)
+    intervals.start = dateshift(intervals.start, 'start', 'second');
+    intervals.end = dateshift(intervals.end, 'start', 'second');
+
+    tf_polar = startsWith(csv_names,'polar'); %% take polar file name
+    polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)),"VariableNamingRule",'preserve');
+    polar = MStoS(polar); %to S from Ms
+    polar = retimeHR(polar,timestep);
+
+    k=3;
+
+    for i = 1:length(devices)
+        tf = startsWith(csv_names,devices{i},'IgnoreCase',true); %% take file name containing devices data ignoring case sensitive
+        if(ismember(1,tf) == 1)
+            data = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf)),"VariableNamingRule",'preserve');
+            data = retimeHR(data,timestep,polar.time(1),polar.time(end));
+
+            % Now calculating the Statistics
+
+            % 1) Entire signal (from the start of the first interval to
+            % the end of the session or last interval. Transitions are
+            % included)
+            allpolar = polar(isbetween(polar.time,intervals.start(1),intervals.end(end)),:);
+            alldata = data(isbetween(data.time,intervals.start(1),intervals.end(end)),:);
+
+            Sess1.MEAN.all {idx_user,2} = nanmean(allpolar.rate);
+            Sess1.MEDIAN.all {idx_user,2} = nanmedian(allpolar.rate);
+            Sess1.SD.all {idx_user,2} = nanstd(allpolar.rate);
+            Sess1.p25.all {idx_user,2} = prctile(allpolar.rate,25);
+            Sess1.p75.all {idx_user,2} = prctile(allpolar.rate,75);
+
+            Sess1.MEAN.all {idx_user,k} = nanmean(alldata.rate);
+            Sess1.MEDIAN.all {idx_user,k} = nanmedian(alldata.rate);
+            Sess1.SD.all {idx_user,k} = nanstd(alldata.rate);
+            Sess1.p25.all {idx_user,k} = prctile(alldata.rate,25);
+            Sess1.p75.all {idx_user,k} = prctile(alldata.rate,75);
 
 
-        tf_intervals = startsWith(csv_names, 'intervals');
-        intervals = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_intervals)),"VariableNamingRule",'preserve');
-        % shift to seconds without milliseconds (start)
-        intervals.start = dateshift(intervals.start, 'start', 'second');
-        intervals.end = dateshift(intervals.end, 'start', 'second');
 
-        tf_polar = startsWith(csv_names,'polar'); %% take polar file name
-        polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)),"VariableNamingRule",'preserve');
-        polar = MStoS(polar);
-        polar = retimeHR(polar,timestemp);
-        allpolar = polar(isbetween(polar.time,intervals.start(1),intervals.end(end)),:);
+            % 2) Each transition
+            for tr = 1 : length(intervals.start)-1
+                trpolar = polar(isbetween(polar.time,intervals.end(tr),intervals.start(tr+1)),:);
+                trdata = data(isbetween(data.time,intervals.end(tr),intervals.start(tr+1)),:);
 
-        SessionMEAN{idx_user,3} = nanmean(allpolar.rate);
-        SessionMEDIAN{idx_user,3} = nanmedian(allpolar.rate);
-        SessionSD{idx_user,3} = nanstd(allpolar.rate);
-        Session25P{idx_user,3} = prctile(allpolar.rate,25);
-        Session75P{idx_user,3} = prctile(allpolar.rate,75);
 
-        for i = 1:length(devices)
-            tf = startsWith(csv_names,devices{i},'IgnoreCase',true); %% take file name containing devices data ignoring case sensitive
-            if(ismember(1,tf) == 1)
-                data = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf)),"VariableNamingRule",'preserve');
-                data = retimeHR(data,timestemp,polar.time(1),polar.time(end));
+                Sess1.MEAN.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,2} = nanmean(trpolar.rate);
+                Sess1.MEDIAN.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,2} = nanmedian(trpolar.rate);
+                Sess1.SD.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,2} = nanstd(trpolar.rate);
+                Sess1.p25.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,2} = prctile(trpolar.rate,25);
+                Sess1.p75.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,2} = prctile(trpolar.rate,75);
 
-                alldata = data(isbetween(data.time,intervals.start(1),intervals.end(end)),:);
-
-                SessionMEAN{idx_user,3+i} = nanmean(alldata.rate);
-                SessionMEDIAN{idx_user,3+i} = nanmedian(alldata.rate);
-                SessionSD{idx_user,3+i} = nanstd(alldata.rate);
-                Session25P{idx_user,3+i} = prctile(alldata.rate,25);
-                Session75P{idx_user,3+i} = prctile(alldata.rate,75);
+                Sess1.MEAN.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,k} = nanmean(trdata.rate);
+                Sess1.MEDIAN.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,k} = nanmedian(trdata.rate);
+                Sess1.SD.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,k} = nanstd(trdata.rate);
+                Sess1.p25.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,k} = prctile(trdata.rate,25);
+                Sess1.p75.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,k} = prctile(trdata.rate,75);
             end
+
+            % 3) Each heart rate zone (interval)
+            for hrzone = 1 : length(intervals.start)
+                hrzonepolar = polar(isbetween(polar.time,intervals.start(hrzone),intervals.end(hrzone)),:);
+                hrzonedata = data(isbetween(data.time,intervals.start(hrzone),intervals.end(hrzone)),:);
+
+                Sess1.MEAN.zone.(sprintf('z%d',hrzone-1)) {idx_user,2} = nanmean(hrzonepolar.rate);
+                Sess1.MEDIAN.zone.(sprintf('z%d',hrzone-1)) {idx_user,2} = nanmedian(hrzonepolar.rate);
+                Sess1.SD.zone.(sprintf('z%d',hrzone-1)) {idx_user,2} = nanstd(hrzonepolar.rate);
+                Sess1.p25.zone.(sprintf('z%d',hrzone-1)) {idx_user,2} = prctile(hrzonepolar.rate,25);
+                Sess1.p75.zone.(sprintf('z%d',hrzone-1)) {idx_user,2} = prctile(hrzonepolar.rate,75);
+
+                Sess1.MEAN.zone.(sprintf('z%d',hrzone-1)) {idx_user,k} = nanmean(hrzonedata.rate);
+                Sess1.MEDIAN.zone.(sprintf('z%d',hrzone-1)) {idx_user,k} = nanmedian(hrzonedata.rate);
+                Sess1.SD.zone.(sprintf('z%d',hrzone-1)) {idx_user,k} = nanstd(hrzonedata.rate);
+                Sess1.p25.zone.(sprintf('z%d',hrzone-1)) {idx_user,k} = prctile(hrzonedata.rate,25);
+                Sess1.p75.zone.(sprintf('z%d',hrzone-1)) {idx_user,k} = prctile(hrzonedata.rate,75);
+
+            end
+
+            % 4) All the transitions together
+            alltrpolar = [];
+            alltrdata = [];
+            for tr = 1 : length(intervals.start)-1
+                alltrpolar = [alltrpolar;polar(isbetween(polar.time,intervals.end(tr),intervals.start(tr+1)),:)];
+                alltrdata = [alltrdata;data(isbetween(data.time,intervals.end(tr),intervals.start(tr+1)),:)];
+            end
+            Sess1.MEAN.alltr {idx_user,2} = nanmean(alltrpolar.rate);
+            Sess1.MEDIAN.alltr {idx_user,2} = nanmedian(alltrpolar.rate);
+            Sess1.SD.alltr {idx_user,2} = nanstd(alltrpolar.rate);
+            Sess1.p25.alltr {idx_user,2} = prctile(alltrpolar.rate,25);
+            Sess1.p75.alltr {idx_user,2} = prctile(alltrpolar.rate,75);
+
+            Sess1.MEAN.alltr {idx_user,k}= nanmean(alltrdata.rate);
+            Sess1.MEDIAN.alltr {idx_user,k} = nanmedian(alltrdata.rate);
+            Sess1.SD.zone.alltr {idx_user,k}= nanstd(alltrdata.rate);
+            Sess1.p25.alltr {idx_user,k} = prctile(alltrdata.rate,25);
+            Sess1.p75.alltr {idx_user,k} = prctile(alltrdata.rate,75);
+
+            k=k+1;
+        end
+    end
+end
+%%
+% Sessione 2
+Sess2.MEAN.all = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double'},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+Sess2.MEDIAN.all = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double'},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+Sess2.SD.all = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double'},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+Sess2.p25.all = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double'},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+Sess2.p75.all = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+
+Sess2.MEAN.all = standardizeMissing(Sess2.MEAN.all,0);
+Sess2.MEDIAN.all = standardizeMissing(Sess2.MEDIAN.all,0);
+Sess2.SD.all = standardizeMissing(Sess2.SD.all,0);
+Sess2.p25.all = standardizeMissing(Sess2.p25.all,0);
+Sess2.p75.all = standardizeMissing(Sess2.p75.all,0);
+
+for tr = 1 : length(intervals.start)-1
+    Sess2.MEAN.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+    Sess2.MEDIAN.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+    Sess2.SD.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+    Sess2.p25.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+    Sess2.p75.transition.(sprintf('tr%d%d',tr-1,tr)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+
+
+    Sess2.MEAN.transition.(sprintf('tr%d%d',tr-1,tr)) = standardizeMissing(Sess2.MEAN.transition.(sprintf('tr%d%d',tr-1,tr)),0);
+    Sess2.MEDIAN.transition.(sprintf('tr%d%d',tr-1,tr)) = standardizeMissing(Sess2.MEDIAN.transition.(sprintf('tr%d%d',tr-1,tr)),0);
+    Sess2.SD.transition.(sprintf('tr%d%d',tr-1,tr)) = standardizeMissing(Sess2.SD.transition.(sprintf('tr%d%d',tr-1,tr)),0);
+    Sess2.p25.transition.(sprintf('tr%d%d',tr-1,tr)) = standardizeMissing(Sess2.p25.transition.(sprintf('tr%d%d',tr-1,tr)),0);
+    Sess2.p75.transition.(sprintf('tr%d%d',tr-1,tr)) = standardizeMissing(Sess2.p75.transition.(sprintf('tr%d%d',tr-1,tr)),0);
+end
+
+for hrzone = 1 : length(intervals.start)
+    Sess2.MEAN.zone.(sprintf('z%d',hrzone-1)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+    Sess2.MEDIAN.zone.(sprintf('z%d',hrzone-1)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+    Sess2.SD.zone.(sprintf('z%d',hrzone-1)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+    Sess2.p25.zone.(sprintf('z%d',hrzone-1)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+    Sess2.p75.zone.(sprintf('z%d',hrzone-1)) = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+
+    Sess2.MEAN.zone.(sprintf('z%d',hrzone-1)) = standardizeMissing(Sess2.MEAN.zone.(sprintf('z%d',hrzone-1)),0);
+    Sess2.MEDIAN.zone.(sprintf('z%d',hrzone-1)) = standardizeMissing(Sess2.MEDIAN.zone.(sprintf('z%d',hrzone-1)),0);
+    Sess2.SD.zone.(sprintf('z%d',hrzone-1)) = standardizeMissing(Sess2.SD.zone.(sprintf('z%d',hrzone-1)),0);
+    Sess2.p25.zone.(sprintf('z%d',hrzone-1)) = standardizeMissing(Sess2.p25.zone.(sprintf('z%d',hrzone-1)),0);
+    Sess2.p75.zone.(sprintf('z%d',hrzone-1)) = standardizeMissing(Sess2.p75.zone.(sprintf('z%d',hrzone-1)),0);
+end
+
+Sess2.MEAN.alltr = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+Sess2.MEDIAN.alltr = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+Sess2.SD.alltr = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+Sess2.p25.alltr = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+Sess2.p75.alltr = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+
+Sess2.MEAN.alltr = standardizeMissing(Sess2.MEAN.alltr,0);
+Sess2.MEDIAN.alltr = standardizeMissing(Sess2.MEDIAN.alltr,0);
+Sess2.SD.alltr = standardizeMissing(Sess2.SD.alltr,0);
+Sess2.p25.alltr = standardizeMissing(Sess2.p25.alltr,0);
+Sess2.p25.alltr = standardizeMissing(Sess2.p75.alltr,0);
+
+
+for idx_user = 1:size(users_DirsNames,2)
+
+    % assign the idUser in tables of structures of errorMetrics
+    Sess2.MEAN.all {idx_user,1} = users_DirsNames(idx_user);
+    Sess2.MEDIAN.all {idx_user,1} = users_DirsNames(idx_user);
+    Sess2.SD.all {idx_user,1} = users_DirsNames(idx_user);
+    Sess2.p25.all {idx_user,1} = users_DirsNames(idx_user);
+    Sess2.p75.all {idx_user,1} = users_DirsNames(idx_user);
+
+    for tr = 1 : length(intervals.start)-1
+        Sess2.MEAN.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,1} = users_DirsNames(idx_user);
+        Sess2.MEDIAN.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,1} = users_DirsNames(idx_user);
+        Sess2.SD.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,1} = users_DirsNames(idx_user);
+        Sess2.p25.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,1} = users_DirsNames(idx_user);
+        Sess2.p75.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,1} = users_DirsNames(idx_user);
+    end
+
+    for hrzone = 1 : length(intervals.start)
+        Sess2.MEAN.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);
+        Sess2.MEDIAN.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);
+        Sess2.SD.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);
+        Sess2.p25.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);
+        Sess2.p75.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);;
+    end
+
+    Sess2.MEAN.alltr {idx_user,1} = users_DirsNames(idx_user);
+    Sess2.MEDIAN.alltr {idx_user,1} = users_DirsNames(idx_user);
+    Sess2.SD.alltr {idx_user,1} = users_DirsNames(idx_user);
+    Sess2.p25.alltr {idx_user,1} = users_DirsNames(idx_user);
+    Sess2.p75.alltr {idx_user,1} = users_DirsNames(idx_user);
+
+    % access the sessions of each user
+    userPath = fullfile(dataPath,users_DirsNames(idx_user));
+    user_fd = dir(userPath);
+    user_Flags = [user_fd.isdir];
+    sessions_Dirs = user_fd(user_Flags);
+    sessions_Dirs = sessions_Dirs(3:end); % keep only valid folders
+
+    % sort sessions alphabetically
+    [~,ind] = sort(cellfun(@(x) str2num(char(regexp(x,'\d*','match'))),{sessions_Dirs.name}));
+    sessions_Dirs = sessions_Dirs(ind);
+    sessions_DirsNames = {sessions_Dirs.name};
+
+    sessions_DirsNames = string(sessions_DirsNames);
+    sessions_DirsNames(startsWith(sessions_DirsNames,'Questionnaires')) = []; %remove the Questionnaires folder when i iterate sessions
+
+    % second session of the user
+    idx_session = 2;
+    csvs = dir(fullfile(userPath,sessions_DirsNames(idx_session)));
+    % get only the folder names into a cell array
+    csv_names = {csvs(3:end).name};
+    csv_names = string(csv_names);
+
+    tf_intervals = startsWith(csv_names, 'intervals');
+    intervals = readtable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_intervals)),"VariableNamingRule",'preserve');
+    % shift to seconds without milliseconds (start --> at the start)
+    intervals.start = dateshift(intervals.start, 'start', 'second');
+    intervals.end = dateshift(intervals.end, 'start', 'second');
+
+    tf_polar = startsWith(csv_names,'polar'); %% take polar file name
+    polar = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf_polar)),"VariableNamingRule",'preserve');
+    polar = MStoS(polar); %to S from Ms
+    polar = retimeHR(polar,timestep);
+
+    k=3;
+    for i = 1:length(devices)
+        tf = startsWith(csv_names,devices{i},'IgnoreCase',true); %% take file name containing devices data ignoring case sensitive
+        if(ismember(1,tf) == 1)
+            data = readtimetable(fullfile(userPath,sessions_DirsNames(idx_session), csv_names(tf)),"VariableNamingRule",'preserve');
+            data = retimeHR(data,timestep,polar.time(1),polar.time(end));
+
+            % Now calculating the Statistics
+
+            % 1) Entire signal (from the start of the first interval to
+            % the end of the session or last interval. Transitions are
+            % included)
+            allpolar = polar(isbetween(polar.time,intervals.start(1),intervals.end(end)),:);
+            alldata = data(isbetween(data.time,intervals.start(1),intervals.end(end)),:);
+
+            Sess2.MEAN.all {idx_user,2} = nanmean(allpolar.rate);
+            Sess2.MEDIAN.all {idx_user,2} = nanmedian(allpolar.rate);
+            Sess2.SD.all {idx_user,2} = nanstd(allpolar.rate);
+            Sess2.p25.all {idx_user,2} = prctile(allpolar.rate,25);
+            Sess2.p75.all {idx_user,2} = prctile(allpolar.rate,75);
+
+            Sess2.MEAN.all {idx_user,k} = nanmean(alldata.rate);
+            Sess2.MEDIAN.all {idx_user,k} = nanmedian(alldata.rate);
+            Sess2.SD.all {idx_user,k} = nanstd(alldata.rate);
+            Sess2.p25.all {idx_user,k} = prctile(alldata.rate,25);
+            Sess2.p75.all {idx_user,k} = prctile(alldata.rate,75);
+
+
+
+            % 2) Each transition
+            for tr = 1 : length(intervals.start)-1
+                trpolar = polar(isbetween(polar.time,intervals.end(tr),intervals.start(tr+1)),:);
+                trdata = data(isbetween(data.time,intervals.end(tr),intervals.start(tr+1)),:);
+
+
+                Sess2.MEAN.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,2} = nanmean(trpolar.rate);
+                Sess2.MEDIAN.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,2} = nanmedian(trpolar.rate);
+                Sess2.SD.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,2} = nanstd(trpolar.rate);
+                Sess2.p25.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,2} = prctile(trpolar.rate,25);
+                Sess2.p75.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,2} = prctile(trpolar.rate,75);
+
+                Sess2.MEAN.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,k} = nanmean(trdata.rate);
+                Sess2.MEDIAN.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,k} = nanmedian(trdata.rate);
+                Sess2.SD.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,k} = nanstd(trdata.rate);
+                Sess2.p25.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,k} = prctile(trdata.rate,25);
+                Sess2.p75.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,k} = prctile(trdata.rate,75);
+            end
+
+            % 3) Each heart rate zone (interval)
+            for hrzone = 1 : length(intervals.start)
+                hrzonepolar = polar(isbetween(polar.time,intervals.start(hrzone),intervals.end(hrzone)),:);
+                hrzonedata = data(isbetween(data.time,intervals.start(hrzone),intervals.end(hrzone)),:);
+
+                Sess2.MEAN.zone.(sprintf('z%d',hrzone-1)) {idx_user,2} = nanmean(hrzonepolar.rate);
+                Sess2.MEDIAN.zone.(sprintf('z%d',hrzone-1)) {idx_user,2} = nanmedian(hrzonepolar.rate);
+                Sess2.SD.zone.(sprintf('z%d',hrzone-1)) {idx_user,2} = nanstd(hrzonepolar.rate);
+                Sess2.p25.zone.(sprintf('z%d',hrzone-1)) {idx_user,2} = prctile(hrzonepolar.rate,25);
+                Sess2.p75.zone.(sprintf('z%d',hrzone-1)) {idx_user,2} = prctile(hrzonepolar.rate,75);
+
+                Sess2.MEAN.zone.(sprintf('z%d',hrzone-1)) {idx_user,k} = nanmean(hrzonedata.rate);
+                Sess2.MEDIAN.zone.(sprintf('z%d',hrzone-1)) {idx_user,k} = nanmedian(hrzonedata.rate);
+                Sess2.SD.zone.(sprintf('z%d',hrzone-1)) {idx_user,k} = nanstd(hrzonedata.rate);
+                Sess2.p25.zone.(sprintf('z%d',hrzone-1)) {idx_user,k} = prctile(hrzonedata.rate,25);
+                Sess2.p75.zone.(sprintf('z%d',hrzone-1)) {idx_user,k} = prctile(hrzonedata.rate,75);
+
+            end
+
+            % 4) All the transitions together
+            alltrpolar = [];
+            alltrdata = [];
+            for tr = 1 : length(intervals.start)-1
+                alltrpolar = [alltrpolar;polar(isbetween(polar.time,intervals.end(tr),intervals.start(tr+1)),:)];
+                alltrdata = [alltrdata;data(isbetween(data.time,intervals.end(tr),intervals.start(tr+1)),:)];
+            end
+            Sess2.MEAN.alltr {idx_user,2} = nanmean(alltrpolar.rate);
+            Sess2.MEDIAN.alltr {idx_user,2} = nanmedian(alltrpolar.rate);
+            Sess2.SD.alltr {idx_user,2} = nanstd(alltrpolar.rate);
+            Sess2.p25.alltr {idx_user,2} = prctile(alltrpolar.rate,25);
+            Sess2.p75.alltr {idx_user,2} = prctile(alltrpolar.rate,75);
+
+            Sess2.MEAN.alltr {idx_user,k}= nanmean(alltrdata.rate);
+            Sess2.MEDIAN.alltr {idx_user,k} = nanmedian(alltrdata.rate);
+            Sess2.SD.zone.alltr {idx_user,k}= nanstd(alltrdata.rate);
+            Sess2.p25.alltr {idx_user,k} = prctile(alltrdata.rate,25);
+            Sess2.p75.alltr {idx_user,k} = prctile(alltrdata.rate,75);
+
+            k=k+1;
         end
     end
 end

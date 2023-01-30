@@ -8,7 +8,7 @@ function mae = mae(data,dataHat)
 %   - dataHat: a timetable with column `time` and `rate` containing the 
 %   heart rate data to compare with `data`.
 %Output:
-%   - mae: the mean absolute error (%).
+%   - mae: the mean absolute error.
 %
 %Preconditions:
 %   - data and dataHat must be a timetable having the same time grid;
@@ -49,6 +49,6 @@ function mae = mae(data,dataHat)
     idx = find(~isnan(dataHat.rate) & ~isnan(data.rate));
     
     %Compute metric
-    mae = 100 * (mean(abs( data.rate(idx) - dataHat.rate(idx) )));
+    mae = (mean(abs( data.rate(idx) - dataHat.rate(idx) )));
     
 end
