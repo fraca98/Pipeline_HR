@@ -1,7 +1,7 @@
 function appleSessionCutter()
 % This function:
 % - creates and saves a file .csv containing the values (time,rate) of
-%   AppleWatch related to that specific session
+%   AppleWatch related to that specific session (-/+10 seconds start/end)
 % - manages if the datetimes in the original .csv file are defined as UNIX
 %   timestamp or datetime
 
@@ -33,7 +33,7 @@ if(strcmp(type_time,'double')) %timestamp
     %Convert to datetime from UNIX timestamp
     apple.time = datetime(apple.time,'ConvertFrom','posixtime', 'Format', 'yyyy-MM-dd HH:mm:ss');
     apple.time = apple.time + hours(apple.time_zone); %adjust datetime with timezone
-    apple = apple(:,{'time','rate','time_zone'});
+    apple = apple(:,{'time','rate'});
     apple = table2timetable(apple);
 
 elseif(strcmp(type_time,'datetime')) %datetime case
@@ -47,7 +47,7 @@ else
     error('appleSessionCutter: time format not recognized')
 end
 
-idx_bet = isbetween(apple.time,session.start, session.end); %check where values of time in Apple are between & equal start/end of session
+idx_bet = isbetween(apple.time,session.start-seconds(10), session.end+seconds(10)); %check where values of time in Apple are between & equal start/end of session
 valid = sum(idx_bet==1); %find number of valid entries (marked as 1 if between)
 if(valid==0)
     error('appleSessionCutter: no AppleWatch values for the session selected')
@@ -58,4 +58,3 @@ nameCsv = sprintf('applewatch_%d_%d.csv',session.iduser,session.id); %create nam
 writetimetable(apple,fullfile(pathSession,nameCsv));
 display(strcat('Exported file:',nameCsv));
 end
-

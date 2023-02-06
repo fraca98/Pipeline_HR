@@ -57,6 +57,6 @@ function timeDelay = timeDelay(data,dataHat)
 
     
     %Compute metric
-    timeDelay = finddelay(data.rate(idx), dataHat.rate(idx)); %moltiplica per timestep (attenzione che a volte ho solo un campione e quindi va in errore) * seconds(data.time(2)-data.time(1)); %controllare qua
+    timeDelay = finddelay(data.rate(idx), dataHat.rate(idx)); %sistemare
     
 end

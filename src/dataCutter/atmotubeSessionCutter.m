@@ -1,7 +1,7 @@
 function atmotubeSessionCutter()
 % This function:
 % - creates and saves a file .csv containing the values (time,rate) of
-%   Garmin related to that specific session
+%   Garmin related to that specific session (-/+10 seconds start/end)
 % - manages if the input Garmin file has .csv or .json extension
 
 % dialog box to select the session file 
@@ -19,9 +19,7 @@ end
 
 atmo = readtimetable(fullfile(pathAtmo,fileAtmo),'VariableNamingRule','preserve'); %to preserve name of columns
     
-st = dateshift(session.start,'start','minute'); %shifting start/end session to get values for Atmotube
-en = dateshift(session.end,'end','minute');
-idx_bet = isbetween(atmo.Date,st, en); %check where values of time are between & equal start/end of session
+idx_bet = isbetween(atmo.Date,session.start-seconds(10), session.end+seconds(10)); %check where values of time are between & equal start/end of session
 valid = sum(idx_bet==1); %find number of valid entries (marked as 1 if between)
 if(valid==0)
     error('atmotubeSessionCutter: no values for the session found')

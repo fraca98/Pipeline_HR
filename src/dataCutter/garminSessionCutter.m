@@ -1,7 +1,7 @@
 function garminSessionCutter()
 % This function:
 % - creates and saves a file .csv containing the values (time,rate) of
-%   Garmin related to that specific session
+%   Garmin related to that specific session (-/+10 seconds start/end)
 % - manages if the input Garmin file has .csv or .json extension
 
 % dialog box to select the session file
@@ -46,7 +46,7 @@ else
     error('garminSessionCutter: no Garmin extension file recognized for the session selected')
 end
 garmin = garmin(:,{'rate'});
-idx_bet = isbetween(garmin.time,session.start, session.end); %check where values of time in Garmin are between & equal start/end of session
+idx_bet = isbetween(garmin.time,session.start-seconds(10), session.end+seconds(10)); %check where values of time in Garmin are between & equal start/end of session
 valid = sum(idx_bet==1); %find number of valid entries (marked as 1 if between)
 if(valid==0)
     error('garminSessionCutter: no Garmin values for the session selected')
