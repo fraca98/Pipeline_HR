@@ -10,7 +10,7 @@ function dataRetimed = retimeHR(data, timestep,startdate,enddate)
 %   heart rate data to retime;
 %   - timestep: an integer (in seconds) defining the timestep to use in the new timetable.
 %   - startdate: a date defining the initial date of the new time grid.
-%   - enddate: a date defining the end date of the new time grid: the grid stops before if timestep overcome it.
+%   - enddate: a date defining the end date of the new time grid: the grid stops before if timestep overcomes it.
 %Output:
 %   - dataRetimed: the retimed timetable.
 %
