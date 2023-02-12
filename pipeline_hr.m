@@ -447,6 +447,22 @@ for hrzone = 1 : length(intervals.start)
     Sess1.MAX.zone.(sprintf('z%d',hrzone-1)) = standardizeMissing(Sess1.MAX.zone.(sprintf('z%d',hrzone-1)),0);
 end
 
+Sess1.MEAN.allzone = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+Sess1.MEDIAN.allzone = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+Sess1.SD.allzone = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+Sess1.p25.allzone = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+Sess1.p75.allzone = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+Sess1.MIN.allzone = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+Sess1.MAX.allzone = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
+
+Sess1.MEAN.allzone = standardizeMissing(Sess1.MEAN.allzone,0);
+Sess1.MEDIAN.allzone = standardizeMissing(Sess1.MEDIAN.allzone,0);
+Sess1.SD.allzone = standardizeMissing(Sess1.SD.allzone,0);
+Sess1.p25.allzone = standardizeMissing(Sess1.p25.allzone,0);
+Sess1.p25.allzone = standardizeMissing(Sess1.p75.allzone,0);
+Sess1.MIN.allzone = standardizeMissing(Sess1.MIN.allzone,0);
+Sess1.MAX.allzone = standardizeMissing(Sess1.MAX.allzone,0);
+
 Sess1.MEAN.alltr = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
 Sess1.MEDIAN.alltr = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
 Sess1.SD.alltr = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Fitbit","Garmin"]);
@@ -494,6 +510,14 @@ for idx_user = 1:size(users_DirsNames,2)
         Sess1.MIN.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);
         Sess1.MAX.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);
     end
+
+    Sess1.MEAN.allzone {idx_user,1} = users_DirsNames(idx_user);
+    Sess1.MEDIAN.allzone {idx_user,1} = users_DirsNames(idx_user);
+    Sess1.SD.allzone {idx_user,1} = users_DirsNames(idx_user);
+    Sess1.p25.allzone {idx_user,1} = users_DirsNames(idx_user);
+    Sess1.p75.allzone {idx_user,1} = users_DirsNames(idx_user);
+    Sess1.MIN.allzone {idx_user,1} = users_DirsNames(idx_user);
+    Sess1.MAX.allzone {idx_user,1} = users_DirsNames(idx_user);
 
     Sess1.MEAN.alltr {idx_user,1} = users_DirsNames(idx_user);
     Sess1.MEDIAN.alltr {idx_user,1} = users_DirsNames(idx_user);
@@ -594,8 +618,8 @@ for idx_user = 1:size(users_DirsNames,2)
 
             % 2) Each transition
             for tr = 1 : length(intervals.start)-1
-                trpolar = polar(isbetween(polar.time,intervals.end(tr),intervals.start(tr+1),'open'),:);
-                trdata = data(isbetween(data.time,intervals.end(tr),intervals.start(tr+1),'open'),:);
+                trpolar = polar(isbetween(polar.time,shiftend(tr),shiftstart(tr+1),'open'),:);
+                trdata = data(isbetween(data.time,shiftend(tr),shiftstart(tr+1),'open'),:);
 
 
                 Sess1.MEAN.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,2} = nanmean(trpolar.rate);
@@ -621,8 +645,8 @@ for idx_user = 1:size(users_DirsNames,2)
 
             % 3) Each heart rate zone (interval)
             for hrzone = 1 : length(intervals.start)
-                hrzonepolar = polar(isbetween(polar.time,intervals.start(hrzone),intervals.end(hrzone)),:);
-                hrzonedata = data(isbetween(data.time,intervals.start(hrzone),intervals.end(hrzone)),:);
+                hrzonepolar = polar(isbetween(polar.time,shiftstart(hrzone),shiftend(hrzone)),:);
+                hrzonedata = data(isbetween(data.time,shiftstart(hrzone),shiftend(hrzone)),:);
 
                 if(idx_user==7 && hrzone ==1) %HR0 7 is NaN
                     hrzonedata.rate = NaN(size(hrzonedata,1),1);
@@ -650,12 +674,41 @@ for idx_user = 1:size(users_DirsNames,2)
 
             end
 
-            % 4) All the transitions together
+            % 4) All zone together
+            allzonepolar = [];
+            allzonedata = [];
+            for hrzone = 1 : length(intervals.start)
+                allzonepolar = [allzonepolar;polar(isbetween(polar.time,shiftstart(hrzone),shiftend(hrzone)),:)];
+                allzonedata = [allzonedata;data(isbetween(data.time,shiftstart(hrzone),shiftend(hrzone)),:)];
+            end
+            Sess1.MEAN.allzone {idx_user,2} = nanmean(allzonepolar.rate);
+            Sess1.MEDIAN.allzone {idx_user,2} = nanmedian(allzonepolar.rate);
+            Sess1.SD.allzone {idx_user,2} = nanstd(allzonepolar.rate);
+            Sess1.p25.allzone {idx_user,2} = prctile(allzonepolar.rate,25);
+            Sess1.p75.allzone {idx_user,2} = prctile(allzonepolar.rate,75);
+            if(~isempty(allzonepolar.rate(~isnan(allzonepolar.rate)))) %if not empty (excluding NaN)
+                Sess1.MIN.allzone {idx_user,2} = min(allzonepolar.rate,[],'omitnan');
+                Sess1.MAX.allzone {idx_user,2} = max(allzonepolar.rate,[],'omitnan');
+            end
+
+            Sess1.MEAN.allzone {idx_user,k}= nanmean(allzonedata.rate);
+            Sess1.MEDIAN.allzone {idx_user,k} = nanmedian(allzonedata.rate);
+            Sess1.SD.allzone {idx_user,k}= nanstd(allzonedata.rate);
+            Sess1.p25.allzone {idx_user,k} = prctile(allzonedata.rate,25);
+            Sess1.p75.allzone {idx_user,k} = prctile(allzonedata.rate,75);
+            if(~isempty(allzonedata.rate(~isnan(allzonedata.rate)))) %if not empty (excluding NaN)
+                Sess1.MIN.allzone {idx_user,k} = min(allzonedata.rate,[],'omitnan');
+                Sess1.MAX.allzone {idx_user,k} = max(allzonedata.rate,[],'omitnan');
+            end
+
+
+
+            % 5) All the transitions together
             alltrpolar = [];
             alltrdata = [];
             for tr = 1 : length(intervals.start)-1
-                alltrpolar = [alltrpolar;polar(isbetween(polar.time,intervals.end(tr),intervals.start(tr+1),'open'),:)];
-                alltrdata = [alltrdata;data(isbetween(data.time,intervals.end(tr),intervals.start(tr+1),'open'),:)];
+                alltrpolar = [alltrpolar;polar(isbetween(polar.time,shiftend(tr),shiftstart(tr+1),'open'),:)];
+                alltrdata = [alltrdata;data(isbetween(data.time,shiftend(tr),shiftstart(tr+1),'open'),:)];
             end
             Sess1.MEAN.alltr {idx_user,2} = nanmean(alltrpolar.rate);
             Sess1.MEDIAN.alltr {idx_user,2} = nanmedian(alltrpolar.rate);
@@ -669,7 +722,7 @@ for idx_user = 1:size(users_DirsNames,2)
 
             Sess1.MEAN.alltr {idx_user,k}= nanmean(alltrdata.rate);
             Sess1.MEDIAN.alltr {idx_user,k} = nanmedian(alltrdata.rate);
-            Sess1.SD.zone.alltr {idx_user,k}= nanstd(alltrdata.rate);
+            Sess1.SD.alltr {idx_user,k}= nanstd(alltrdata.rate);
             Sess1.p25.alltr {idx_user,k} = prctile(alltrdata.rate,25);
             Sess1.p75.alltr {idx_user,k} = prctile(alltrdata.rate,75);
             if(~isempty(alltrdata.rate(~isnan(alltrdata.rate)))) %if not empty (excluding NaN)
@@ -736,6 +789,22 @@ for hrzone = 1 : length(intervals.start)
     Sess2.MAX.zone.(sprintf('z%d',hrzone-1)) = standardizeMissing(Sess2.MAX.zone.(sprintf('z%d',hrzone-1)),0);
 end
 
+Sess2.MEAN.allzone = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+Sess2.MEDIAN.allzone = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+Sess2.SD.allzone = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+Sess2.p25.allzone = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+Sess2.p75.allzone = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+Sess2.MIN.allzone = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+Sess2.MAX.allzone = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
+
+Sess2.MEAN.allzone = standardizeMissing(Sess2.MEAN.allzone,0);
+Sess2.MEDIAN.allzone = standardizeMissing(Sess2.MEDIAN.allzone,0);
+Sess2.SD.allzone = standardizeMissing(Sess2.SD.allzone,0);
+Sess2.p25.allzone = standardizeMissing(Sess2.p25.allzone,0);
+Sess2.p25.allzone = standardizeMissing(Sess2.p75.allzone,0);
+Sess2.MIN.allzone = standardizeMissing(Sess2.MIN.allzone,0);
+Sess2.MAX.allzone = standardizeMissing(Sess2.MAX.allzone,0);
+
 Sess2.MEAN.alltr = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
 Sess2.MEDIAN.alltr = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
 Sess2.SD.alltr = table('Size',[length(users_DirsNames),4],'VariableTypes',{'double','double','double','double',},'VariableNames',["IDUser","Polar","Apple","Withings"]);
@@ -783,6 +852,14 @@ for idx_user = 1:size(users_DirsNames,2)
         Sess2.MIN.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);
         Sess2.MAX.zone.(sprintf('z%d',hrzone-1)) {idx_user,1} = users_DirsNames(idx_user);
     end
+
+    Sess2.MEAN.allzone {idx_user,1} = users_DirsNames(idx_user);
+    Sess2.MEDIAN.allzone {idx_user,1} = users_DirsNames(idx_user);
+    Sess2.SD.allzone {idx_user,1} = users_DirsNames(idx_user);
+    Sess2.p25.allzone {idx_user,1} = users_DirsNames(idx_user);
+    Sess2.p75.allzone {idx_user,1} = users_DirsNames(idx_user);
+    Sess2.MIN.allzone {idx_user,1} = users_DirsNames(idx_user);
+    Sess2.MAX.allzone {idx_user,1} = users_DirsNames(idx_user);
 
     Sess2.MEAN.alltr {idx_user,1} = users_DirsNames(idx_user);
     Sess2.MEDIAN.alltr {idx_user,1} = users_DirsNames(idx_user);
@@ -841,13 +918,13 @@ for idx_user = 1:size(users_DirsNames,2)
                         data.rate(~isbetween(data.time,shiftstart(1),shiftstart(3),'openright'))=NaN;
                     end
                 case 7
-                    % Fitbit/Garmin/Apple/Withings: NO HR0,TR01
+                    % Apple/Withings/Apple/Withings: NO HR0,TR01
                     data.rate(~isbetween(data.time,shiftstart(2),shiftend(end)))=NaN;
                 case 8
                     if(i==1 || i==4) %Apple/Withings: NO HR0,TR01
                         data.rate(~isbetween(data.time,shiftstart(2),shiftend(end)))=NaN;
                     end
-                    if(i==2 || i==3) %Fitbit/Garmin: NO HR0
+                    if(i==2 || i==3) %Apple/Withings: NO HR0
                         data.rate(~isbetween(data.time,shiftend(1),shiftend(end),'openleft'))=NaN;
                     end
 
@@ -883,8 +960,8 @@ for idx_user = 1:size(users_DirsNames,2)
 
             % 2) Each transition
             for tr = 1 : length(intervals.start)-1
-                trpolar = polar(isbetween(polar.time,intervals.end(tr),intervals.start(tr+1),'open'),:);
-                trdata = data(isbetween(data.time,intervals.end(tr),intervals.start(tr+1),'open'),:);
+                trpolar = polar(isbetween(polar.time,shiftend(tr),shiftstart(tr+1),'open'),:);
+                trdata = data(isbetween(data.time,shiftend(tr),shiftstart(tr+1),'open'),:);
 
 
                 Sess2.MEAN.transition.(sprintf('tr%d%d',tr-1,tr)) {idx_user,2} = nanmean(trpolar.rate);
@@ -910,8 +987,8 @@ for idx_user = 1:size(users_DirsNames,2)
 
             % 3) Each heart rate zone (interval)
             for hrzone = 1 : length(intervals.start)
-                hrzonepolar = polar(isbetween(polar.time,intervals.start(hrzone),intervals.end(hrzone)),:);
-                hrzonedata = data(isbetween(data.time,intervals.start(hrzone),intervals.end(hrzone)),:);
+                hrzonepolar = polar(isbetween(polar.time,shiftstart(hrzone),shiftend(hrzone)),:);
+                hrzonedata = data(isbetween(data.time,shiftstart(hrzone),shiftend(hrzone)),:);
 
                 if(idx_user==7 && hrzone ==1) %HR0 7 is NaN
                     hrzonedata.rate = NaN(size(hrzonedata,1),1);
@@ -939,12 +1016,41 @@ for idx_user = 1:size(users_DirsNames,2)
 
             end
 
-            % 4) All the transitions together
+            % 4) All zone together
+            allzonepolar = [];
+            allzonedata = [];
+            for hrzone = 1 : length(intervals.start)
+                allzonepolar = [allzonepolar;polar(isbetween(polar.time,shiftstart(hrzone),shiftend(hrzone)),:)];
+                allzonedata = [allzonedata;data(isbetween(data.time,shiftstart(hrzone),shiftend(hrzone)),:)];
+            end
+            Sess2.MEAN.allzone {idx_user,2} = nanmean(allzonepolar.rate);
+            Sess2.MEDIAN.allzone {idx_user,2} = nanmedian(allzonepolar.rate);
+            Sess2.SD.allzone {idx_user,2} = nanstd(allzonepolar.rate);
+            Sess2.p25.allzone {idx_user,2} = prctile(allzonepolar.rate,25);
+            Sess2.p75.allzone {idx_user,2} = prctile(allzonepolar.rate,75);
+            if(~isempty(allzonepolar.rate(~isnan(allzonepolar.rate)))) %if not empty (excluding NaN)
+                Sess2.MIN.allzone {idx_user,2} = min(allzonepolar.rate,[],'omitnan');
+                Sess2.MAX.allzone {idx_user,2} = max(allzonepolar.rate,[],'omitnan');
+            end
+
+            Sess2.MEAN.allzone {idx_user,k}= nanmean(allzonedata.rate);
+            Sess2.MEDIAN.allzone {idx_user,k} = nanmedian(allzonedata.rate);
+            Sess2.SD.allzone {idx_user,k}= nanstd(allzonedata.rate);
+            Sess2.p25.allzone {idx_user,k} = prctile(allzonedata.rate,25);
+            Sess2.p75.allzone {idx_user,k} = prctile(allzonedata.rate,75);
+            if(~isempty(allzonedata.rate(~isnan(allzonedata.rate)))) %if not empty (excluding NaN)
+                Sess2.MIN.allzone {idx_user,k} = min(allzonedata.rate,[],'omitnan');
+                Sess2.MAX.allzone {idx_user,k} = max(allzonedata.rate,[],'omitnan');
+            end
+
+
+
+            % 5) All the transitions together
             alltrpolar = [];
             alltrdata = [];
             for tr = 1 : length(intervals.start)-1
-                alltrpolar = [alltrpolar;polar(isbetween(polar.time,intervals.end(tr),intervals.start(tr+1),'open'),:)];
-                alltrdata = [alltrdata;data(isbetween(data.time,intervals.end(tr),intervals.start(tr+1),'open'),:)];
+                alltrpolar = [alltrpolar;polar(isbetween(polar.time,shiftend(tr),shiftstart(tr+1),'open'),:)];
+                alltrdata = [alltrdata;data(isbetween(data.time,shiftend(tr),shiftstart(tr+1),'open'),:)];
             end
             Sess2.MEAN.alltr {idx_user,2} = nanmean(alltrpolar.rate);
             Sess2.MEDIAN.alltr {idx_user,2} = nanmedian(alltrpolar.rate);
@@ -958,7 +1064,7 @@ for idx_user = 1:size(users_DirsNames,2)
 
             Sess2.MEAN.alltr {idx_user,k}= nanmean(alltrdata.rate);
             Sess2.MEDIAN.alltr {idx_user,k} = nanmedian(alltrdata.rate);
-            Sess2.SD.zone.alltr {idx_user,k}= nanstd(alltrdata.rate);
+            Sess2.SD.alltr {idx_user,k}= nanstd(alltrdata.rate);
             Sess2.p25.alltr {idx_user,k} = prctile(alltrdata.rate,25);
             Sess2.p75.alltr {idx_user,k} = prctile(alltrdata.rate,75);
             if(~isempty(alltrdata.rate(~isnan(alltrdata.rate)))) %if not empty (excluding NaN)
