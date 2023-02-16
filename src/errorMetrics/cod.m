@@ -4,9 +4,9 @@ function cod = cod(data,dataHat)
 %
 %Inputs:
 %   - data: a timetable with column `time` and `rate` containing the 
-%   heart rate data;
+%   heart rate data (actual - Polar);
 %   - dataHat: a timetable with column `time` and `rate` containing the 
-%   heart rate data to compare with `data`.
+%   heart rate data predicted to compare with `data`.
 %Output:
 %   - cod: the computed coefficient of determination (%).
 %

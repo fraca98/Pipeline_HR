@@ -45,8 +45,12 @@ function xcorrN = xcorrN(data,dataHat)
     
     %Get indices having no nans in both timetables
     idx = find(~isnan(dataHat.rate) & ~isnan(data.rate));
-    
+
+    if(length(idx)==0)
+        xcorrN = NaN;
+        return
+    else
     %Compute metric
-    xcorrN = xcorr(data.rate(idx), dataHat.rate(idx));
-    
+        xcorrN = xcorr(data.rate(idx), dataHat.rate(idx));
+    end
 end

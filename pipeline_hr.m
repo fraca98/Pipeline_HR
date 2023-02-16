@@ -300,6 +300,8 @@ for idx_user = 1:size(users_DirsNames,2)
                     case 7
                         % Fitbit/Garmin/Apple/Withings: NO HR0,TR01 (TR01 NOT EXIST! --> remove calculation HR0, cause first point HR1 is also end HR0)
                         data.rate(~isbetween(data.time,shiftstart(2),shiftend(end)))=NaN;
+                        % Remove Fitbit (outlier)
+                        if (i==2) data.rate(:)=NaN; end
                     case 8
                         if(i==1 || i==4) %Apple/Withings: NO HR0,TR01
                             data.rate(~isbetween(data.time,shiftstart(2),shiftend(end)))=NaN;
@@ -578,6 +580,8 @@ for idx_user = 1:size(users_DirsNames,2)
                 case 7
                     % Fitbit/Garmin/Apple/Withings: NO HR0,TR01
                     data.rate(~isbetween(data.time,shiftstart(2),shiftend(end)))=NaN;
+                    % Remove Fitbit (outlier)
+                    if (i==2) data.rate(:)=NaN; end
                 case 8
                     if(i==1 || i==4) %Apple/Withings: NO HR0,TR01
                         data.rate(~isbetween(data.time,shiftstart(2),shiftend(end)))=NaN;
@@ -920,6 +924,8 @@ for idx_user = 1:size(users_DirsNames,2)
                 case 7
                     % Apple/Withings/Apple/Withings: NO HR0,TR01
                     data.rate(~isbetween(data.time,shiftstart(2),shiftend(end)))=NaN;
+                    % Remove Fitbit (outlier)
+                    if (i==2) data.rate(:)=NaN; end
                 case 8
                     if(i==1 || i==4) %Apple/Withings: NO HR0,TR01
                         data.rate(~isbetween(data.time,shiftstart(2),shiftend(end)))=NaN;
@@ -1076,3 +1082,82 @@ for idx_user = 1:size(users_DirsNames,2)
         end
     end
 end
+
+%% For ERROR METRICS
+
+COD.transition.tr01.Apple(isinf(COD.transition.tr01.Apple))=NaN;
+COD.transition.tr01.Fitbit(isinf(COD.transition.tr01.Fitbit))=NaN;
+COD.transition.tr01.Garmin(isinf(COD.transition.tr01.Garmin))=NaN;
+COD.transition.tr01.Withings(isinf(COD.transition.tr01.Withings))=NaN;
+
+COD.transition.tr12.Apple(isinf(COD.transition.tr12.Apple))=NaN;
+COD.transition.tr12.Fitbit(isinf(COD.transition.tr12.Fitbit))=NaN;
+COD.transition.tr12.Garmin(isinf(COD.transition.tr12.Garmin))=NaN;
+COD.transition.tr12.Withings(isinf(COD.transition.tr12.Withings))=NaN;
+
+COD.transition.tr23.Apple(isinf(COD.transition.tr23.Apple))=NaN;
+COD.transition.tr23.Fitbit(isinf(COD.transition.tr23.Fitbit))=NaN;
+COD.transition.tr23.Garmin(isinf(COD.transition.tr23.Garmin))=NaN;
+COD.transition.tr23.Withings(isinf(COD.transition.tr23.Withings))=NaN;
+
+COD.transition.tr34.Apple(isinf(COD.transition.tr34.Apple))=NaN;
+COD.transition.tr34.Fitbit(isinf(COD.transition.tr34.Fitbit))=NaN;
+COD.transition.tr34.Garmin(isinf(COD.transition.tr34.Garmin))=NaN;
+COD.transition.tr34.Withings(isinf(COD.transition.tr34.Withings))=NaN;
+
+COD.transition.tr45.Apple(isinf(COD.transition.tr45.Apple))=NaN;
+COD.transition.tr45.Fitbit(isinf(COD.transition.tr45.Fitbit))=NaN;
+COD.transition.tr45.Garmin(isinf(COD.transition.tr45.Garmin))=NaN;
+COD.transition.tr45.Withings(isinf(COD.transition.tr45.Withings))=NaN;
+
+%%
+[nanmean(COD.transition.tr45{:,2:end})',nanmean(MAE.transition.tr45{:,2:end})',nanmean(MARD.transition.tr45{:,2:end})',nanmean(RMSE.transition.tr45{:,2:end})']
+%%
+
+[COD.alltr.Apple,MAE.alltr.Apple,MARD.alltr.Apple,RMSE.alltr.Apple]
+
+%%
+
+[COD.alltr.Fitbit,MAE.alltr.Fitbit,MARD.alltr.Fitbit,RMSE.alltr.Fitbit]
+
+%%
+
+[COD.alltr.Garmin,MAE.alltr.Garmin,MARD.alltr.Garmin,RMSE.alltr.Garmin]
+
+%%
+
+[COD.alltr.Withings,MAE.alltr.Withings,MARD.alltr.Withings,RMSE.alltr.Withings]
+
+
+%% FOR STATISTICAL METRICS
+
+[
+    nanmean(Sess1.MEAN.all.Polar),nanstd(Sess1.MEAN.all.Polar),nanmean(Sess1.MEAN.all.Fitbit),nanstd(Sess1.MEAN.all.Fitbit),nanmean(Sess1.MEAN.all.Garmin),nanstd(Sess1.MEAN.all.Garmin),nanmean(Sess2.MEAN.all.Polar),nanstd(Sess2.MEAN.all.Polar), nanmean(Sess2.MEAN.all.Apple),nanstd(Sess2.MEAN.all.Apple), nanmean(Sess2.MEAN.all.Withings),nanstd(Sess2.MEAN.all.Withings);
+    nanmean(Sess1.MEDIAN.all.Polar),nanstd(Sess1.MEDIAN.all.Polar),nanmean(Sess1.MEDIAN.all.Fitbit),nanstd(Sess1.MEDIAN.all.Fitbit),nanmean(Sess1.MEDIAN.all.Garmin),nanstd(Sess1.MEDIAN.all.Garmin),nanmean(Sess2.MEDIAN.all.Polar),nanstd(Sess2.MEDIAN.all.Polar), nanmean(Sess2.MEDIAN.all.Apple),nanstd(Sess2.MEDIAN.all.Apple), nanmean(Sess2.MEDIAN.all.Withings),nanstd(Sess2.MEDIAN.all.Withings);
+    nanmean(Sess1.SD.all.Polar),nanstd(Sess1.SD.all.Polar),nanmean(Sess1.SD.all.Fitbit),nanstd(Sess1.SD.all.Fitbit),nanmean(Sess1.SD.all.Garmin),nanstd(Sess1.SD.all.Garmin),nanmean(Sess2.SD.all.Polar),nanstd(Sess2.SD.all.Polar), nanmean(Sess2.SD.all.Apple),nanstd(Sess2.SD.all.Apple), nanmean(Sess2.SD.all.Withings),nanstd(Sess2.SD.all.Withings);
+    nanmean(Sess1.p25.all.Polar),nanstd(Sess1.p25.all.Polar),nanmean(Sess1.p25.all.Fitbit),nanstd(Sess1.p25.all.Fitbit),nanmean(Sess1.p25.all.Garmin),nanstd(Sess1.p25.all.Garmin),nanmean(Sess2.p25.all.Polar),nanstd(Sess2.p25.all.Polar), nanmean(Sess2.p25.all.Apple),nanstd(Sess2.p25.all.Apple), nanmean(Sess2.p25.all.Withings),nanstd(Sess2.p25.all.Withings);
+    nanmean(Sess1.p75.all.Polar),nanstd(Sess1.p75.all.Polar),nanmean(Sess1.p75.all.Fitbit),nanstd(Sess1.p75.all.Fitbit),nanmean(Sess1.p75.all.Garmin),nanstd(Sess1.p75.all.Garmin),nanmean(Sess2.p75.all.Polar),nanstd(Sess2.p75.all.Polar), nanmean(Sess2.p75.all.Apple),nanstd(Sess2.p75.all.Apple), nanmean(Sess2.p75.all.Withings),nanstd(Sess2.p75.all.Withings);
+    nanmean(Sess1.MIN.all.Polar),nanstd(Sess1.MIN.all.Polar),nanmean(Sess1.MIN.all.Fitbit),nanstd(Sess1.MIN.all.Fitbit),nanmean(Sess1.MIN.all.Garmin),nanstd(Sess1.MIN.all.Garmin),nanmean(Sess2.MIN.all.Polar),nanstd(Sess2.MIN.all.Polar), nanmean(Sess2.MIN.all.Apple),nanstd(Sess2.MIN.all.Apple), nanmean(Sess2.MIN.all.Withings),nanstd(Sess2.MIN.all.Withings);
+    nanmean(Sess1.MAX.all.Polar),nanstd(Sess1.MAX.all.Polar),nanmean(Sess1.MAX.all.Fitbit),nanstd(Sess1.MAX.all.Fitbit),nanmean(Sess1.MAX.all.Garmin),nanstd(Sess1.MAX.all.Garmin),nanmean(Sess2.MAX.all.Polar),nanstd(Sess2.MAX.all.Polar), nanmean(Sess2.MAX.all.Apple),nanstd(Sess2.MAX.all.Apple), nanmean(Sess2.MAX.all.Withings),nanstd(Sess2.MAX.all.Withings);
+]
+
+%%
+[
+    nanmean(Sess1.MEAN.allzone.Polar),nanstd(Sess1.MEAN.allzone.Polar),nanmean(Sess1.MEAN.allzone.Fitbit),nanstd(Sess1.MEAN.allzone.Fitbit),nanmean(Sess1.MEAN.allzone.Garmin),nanstd(Sess1.MEAN.allzone.Garmin),nanmean(Sess2.MEAN.allzone.Polar),nanstd(Sess2.MEAN.allzone.Polar), nanmean(Sess2.MEAN.allzone.Apple),nanstd(Sess2.MEAN.allzone.Apple), nanmean(Sess2.MEAN.allzone.Withings),nanstd(Sess2.MEAN.allzone.Withings);
+    nanmean(Sess1.MEDIAN.allzone.Polar),nanstd(Sess1.MEDIAN.allzone.Polar),nanmean(Sess1.MEDIAN.allzone.Fitbit),nanstd(Sess1.MEDIAN.allzone.Fitbit),nanmean(Sess1.MEDIAN.allzone.Garmin),nanstd(Sess1.MEDIAN.allzone.Garmin),nanmean(Sess2.MEDIAN.allzone.Polar),nanstd(Sess2.MEDIAN.allzone.Polar), nanmean(Sess2.MEDIAN.allzone.Apple),nanstd(Sess2.MEDIAN.allzone.Apple), nanmean(Sess2.MEDIAN.allzone.Withings),nanstd(Sess2.MEDIAN.allzone.Withings);
+    nanmean(Sess1.SD.allzone.Polar),nanstd(Sess1.SD.allzone.Polar),nanmean(Sess1.SD.allzone.Fitbit),nanstd(Sess1.SD.allzone.Fitbit),nanmean(Sess1.SD.allzone.Garmin),nanstd(Sess1.SD.allzone.Garmin),nanmean(Sess2.SD.allzone.Polar),nanstd(Sess2.SD.allzone.Polar), nanmean(Sess2.SD.allzone.Apple),nanstd(Sess2.SD.allzone.Apple), nanmean(Sess2.SD.allzone.Withings),nanstd(Sess2.SD.allzone.Withings);
+    nanmean(Sess1.p25.allzone.Polar),nanstd(Sess1.p25.allzone.Polar),nanmean(Sess1.p25.allzone.Fitbit),nanstd(Sess1.p25.allzone.Fitbit),nanmean(Sess1.p25.allzone.Garmin),nanstd(Sess1.p25.allzone.Garmin),nanmean(Sess2.p25.allzone.Polar),nanstd(Sess2.p25.allzone.Polar), nanmean(Sess2.p25.allzone.Apple),nanstd(Sess2.p25.allzone.Apple), nanmean(Sess2.p25.allzone.Withings),nanstd(Sess2.p25.allzone.Withings);
+    nanmean(Sess1.p75.allzone.Polar),nanstd(Sess1.p75.allzone.Polar),nanmean(Sess1.p75.allzone.Fitbit),nanstd(Sess1.p75.allzone.Fitbit),nanmean(Sess1.p75.allzone.Garmin),nanstd(Sess1.p75.allzone.Garmin),nanmean(Sess2.p75.allzone.Polar),nanstd(Sess2.p75.allzone.Polar), nanmean(Sess2.p75.allzone.Apple),nanstd(Sess2.p75.allzone.Apple), nanmean(Sess2.p75.allzone.Withings),nanstd(Sess2.p75.allzone.Withings);
+    nanmean(Sess1.MIN.allzone.Polar),nanstd(Sess1.MIN.allzone.Polar),nanmean(Sess1.MIN.allzone.Fitbit),nanstd(Sess1.MIN.allzone.Fitbit),nanmean(Sess1.MIN.allzone.Garmin),nanstd(Sess1.MIN.allzone.Garmin),nanmean(Sess2.MIN.allzone.Polar),nanstd(Sess2.MIN.allzone.Polar), nanmean(Sess2.MIN.allzone.Apple),nanstd(Sess2.MIN.allzone.Apple), nanmean(Sess2.MIN.allzone.Withings),nanstd(Sess2.MIN.allzone.Withings);
+    nanmean(Sess1.MAX.allzone.Polar),nanstd(Sess1.MAX.allzone.Polar),nanmean(Sess1.MAX.allzone.Fitbit),nanstd(Sess1.MAX.allzone.Fitbit),nanmean(Sess1.MAX.allzone.Garmin),nanstd(Sess1.MAX.allzone.Garmin),nanmean(Sess2.MAX.allzone.Polar),nanstd(Sess2.MAX.allzone.Polar), nanmean(Sess2.MAX.allzone.Apple),nanstd(Sess2.MAX.allzone.Apple), nanmean(Sess2.MAX.allzone.Withings),nanstd(Sess2.MAX.allzone.Withings);
+]
+%%
+[
+    nanmean(Sess1.MEAN.alltr.Polar),nanstd(Sess1.MEAN.alltr.Polar),nanmean(Sess1.MEAN.alltr.Fitbit),nanstd(Sess1.MEAN.alltr.Fitbit),nanmean(Sess1.MEAN.alltr.Garmin),nanstd(Sess1.MEAN.alltr.Garmin),nanmean(Sess2.MEAN.alltr.Polar),nanstd(Sess2.MEAN.alltr.Polar), nanmean(Sess2.MEAN.alltr.Apple),nanstd(Sess2.MEAN.alltr.Apple), nanmean(Sess2.MEAN.alltr.Withings),nanstd(Sess2.MEAN.alltr.Withings);
+    nanmean(Sess1.MEDIAN.alltr.Polar),nanstd(Sess1.MEDIAN.alltr.Polar),nanmean(Sess1.MEDIAN.alltr.Fitbit),nanstd(Sess1.MEDIAN.alltr.Fitbit),nanmean(Sess1.MEDIAN.alltr.Garmin),nanstd(Sess1.MEDIAN.alltr.Garmin),nanmean(Sess2.MEDIAN.alltr.Polar),nanstd(Sess2.MEDIAN.alltr.Polar), nanmean(Sess2.MEDIAN.alltr.Apple),nanstd(Sess2.MEDIAN.alltr.Apple), nanmean(Sess2.MEDIAN.alltr.Withings),nanstd(Sess2.MEDIAN.alltr.Withings);
+    nanmean(Sess1.SD.alltr.Polar),nanstd(Sess1.SD.alltr.Polar),nanmean(Sess1.SD.alltr.Fitbit),nanstd(Sess1.SD.alltr.Fitbit),nanmean(Sess1.SD.alltr.Garmin),nanstd(Sess1.SD.alltr.Garmin),nanmean(Sess2.SD.alltr.Polar),nanstd(Sess2.SD.alltr.Polar), nanmean(Sess2.SD.alltr.Apple),nanstd(Sess2.SD.alltr.Apple), nanmean(Sess2.SD.alltr.Withings),nanstd(Sess2.SD.alltr.Withings);
+    nanmean(Sess1.p25.alltr.Polar),nanstd(Sess1.p25.alltr.Polar),nanmean(Sess1.p25.alltr.Fitbit),nanstd(Sess1.p25.alltr.Fitbit),nanmean(Sess1.p25.alltr.Garmin),nanstd(Sess1.p25.alltr.Garmin),nanmean(Sess2.p25.alltr.Polar),nanstd(Sess2.p25.alltr.Polar), nanmean(Sess2.p25.alltr.Apple),nanstd(Sess2.p25.alltr.Apple), nanmean(Sess2.p25.alltr.Withings),nanstd(Sess2.p25.alltr.Withings);
+    nanmean(Sess1.p75.alltr.Polar),nanstd(Sess1.p75.alltr.Polar),nanmean(Sess1.p75.alltr.Fitbit),nanstd(Sess1.p75.alltr.Fitbit),nanmean(Sess1.p75.alltr.Garmin),nanstd(Sess1.p75.alltr.Garmin),nanmean(Sess2.p75.alltr.Polar),nanstd(Sess2.p75.alltr.Polar), nanmean(Sess2.p75.alltr.Apple),nanstd(Sess2.p75.alltr.Apple), nanmean(Sess2.p75.alltr.Withings),nanstd(Sess2.p75.alltr.Withings);
+    nanmean(Sess1.MIN.alltr.Polar),nanstd(Sess1.MIN.alltr.Polar),nanmean(Sess1.MIN.alltr.Fitbit),nanstd(Sess1.MIN.alltr.Fitbit),nanmean(Sess1.MIN.alltr.Garmin),nanstd(Sess1.MIN.alltr.Garmin),nanmean(Sess2.MIN.alltr.Polar),nanstd(Sess2.MIN.alltr.Polar), nanmean(Sess2.MIN.alltr.Apple),nanstd(Sess2.MIN.alltr.Apple), nanmean(Sess2.MIN.alltr.Withings),nanstd(Sess2.MIN.alltr.Withings);
+    nanmean(Sess1.MAX.alltr.Polar),nanstd(Sess1.MAX.alltr.Polar),nanmean(Sess1.MAX.alltr.Fitbit),nanstd(Sess1.MAX.alltr.Fitbit),nanmean(Sess1.MAX.alltr.Garmin),nanstd(Sess1.MAX.alltr.Garmin),nanmean(Sess2.MAX.alltr.Polar),nanstd(Sess2.MAX.alltr.Polar), nanmean(Sess2.MAX.alltr.Apple),nanstd(Sess2.MAX.alltr.Apple), nanmean(Sess2.MAX.alltr.Withings),nanstd(Sess2.MAX.alltr.Withings);
+]
