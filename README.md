@@ -87,8 +87,6 @@ The `errorMetrics` folder contains a series of MATLAB files used to calculate er
 #### retime
 The `retime` folder contains a series of MATLAB files used to retime the data series.
 
-Here's the text you requested:
-
 ## How to use it?
 ### 1. Populate the `data` folder
 Copy in the folder `data` all the folders and files structures contained in the `TimeRun` folder that the application `TimeRun` exports in the memory of the smarthphone when the user submits it in the application
