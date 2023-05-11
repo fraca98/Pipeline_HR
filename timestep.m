@@ -1,5 +1,7 @@
-% Mode of sampling frequency: find the best timestep to retime data series
-% (considering all sessions)
+% Sampling frequency mode for each device: determine the most common time step
+% across all sessions for each device.
+% Then use the largest common time step to resample each data series.
+
 clear
 close all
 clc
