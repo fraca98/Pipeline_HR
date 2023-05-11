@@ -113,4 +113,4 @@ Since the data series do not always have the same timestep even within the same 
 Open the script `pipeline_hr.m` and join the results.
 
 # Acknowledgements
-Thank you @gcappon and @KingLudwig94 for the help :smile:
+Thank you [@gcappon](https://github.com/gcappon) and [@KingLudwig94](https://github.com/KingLudwig94) for the help :smile:
